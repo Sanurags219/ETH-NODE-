@@ -22,7 +22,13 @@ import {
   Clock,
   ArrowUpRight,
   TrendingUp,
-  HardDrive
+  HardDrive,
+  HeartPulse,
+  RefreshCw,
+  CheckCircle2,
+  AlertTriangle,
+  XCircle,
+  Search
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -47,12 +53,21 @@ const LOG_ENTRIES = [
 ];
 
 type ConnectionStatus = 'connected' | 'syncing' | 'disconnected';
+type HealthStatus = 'checking' | 'healthy' | 'warning' | 'critical';
 
 interface MetricData {
   time: string;
   timestamp: number;
   cpu: number;
   ram: number;
+}
+
+interface HealthCheck {
+  id: string;
+  name: string;
+  status: 'passed' | 'failed' | 'warning';
+  message: string;
+  timestamp: string;
 }
 
 export default function NodeDashboard() {
@@ -66,6 +81,16 @@ export default function NodeDashboard() {
   const [etc, setEtc] = useState("Ready");
   const [showDetails, setShowDetails] = useState(false);
   
+  // Health check state
+  const [healthStatus, setHealthStatus] = useState<HealthStatus>('healthy');
+  const [lastCheck, setLastCheck] = useState<string>(new Date().toLocaleTimeString());
+  const [isChecking, setIsChecking] = useState(false);
+  const [healthChecks, setHealthChecks] = useState<HealthCheck[]>([
+    { id: '1', name: 'Database Integrity', status: 'passed', message: 'All levels verified', timestamp: new Date().toLocaleTimeString() },
+    { id: '2', name: 'P2P Handshake', status: 'passed', message: '64 active peers detected', timestamp: new Date().toLocaleTimeString() },
+    { id: '3', name: 'Block Finality', status: 'passed', message: 'Validating latest state', timestamp: new Date().toLocaleTimeString() },
+  ]);
+
   // Historical metrics state
   const [metrics, setMetrics] = useState<MetricData[]>([]);
 
@@ -80,7 +105,7 @@ export default function NodeDashboard() {
     };
     init();
 
-    // Initialize metrics with some random historical data
+    // Initialize metrics
     const initialMetrics: MetricData[] = [];
     const now = Date.now();
     for (let i = 60; i >= 0; i--) {
@@ -98,7 +123,6 @@ export default function NodeDashboard() {
       const randomLog = LOG_ENTRIES[Math.floor(Math.random() * LOG_ENTRIES.length)];
       setLogs(prev => [randomLog, ...prev].slice(0, 10));
 
-      // Add new metric point
       const newTs = Date.now();
       setMetrics(prev => {
         const next = [...prev, {
@@ -107,12 +131,63 @@ export default function NodeDashboard() {
           cpu: Math.floor(Math.random() * 20 + 35),
           ram: parseFloat((Math.random() * 0.5 + 17.8).toFixed(1))
         }];
-        return next.slice(-60); // Keep last hour
+        return next.slice(-60);
       });
     }, 4000);
 
-    return () => clearInterval(interval);
+    // Periodic health check every 30 seconds
+    const healthInterval = setInterval(runHealthCheck, 30000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(healthInterval);
+    };
   }, []);
+
+  const runHealthCheck = async () => {
+    setIsChecking(true);
+    setHealthStatus('checking');
+    
+    // Simulate check delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    const newTimestamp = new Date().toLocaleTimeString();
+    const updatedChecks: HealthCheck[] = [
+      { 
+        id: '1', 
+        name: 'Database Integrity', 
+        status: Math.random() > 0.05 ? 'passed' : 'warning', 
+        message: Math.random() > 0.05 ? 'All levels verified' : 'Minor fragmentation detected',
+        timestamp: newTimestamp 
+      },
+      { 
+        id: '2', 
+        name: 'P2P Handshake', 
+        status: status === 'disconnected' ? 'failed' : 'passed', 
+        message: status === 'disconnected' ? 'No peers found' : 'Healthy peer count',
+        timestamp: newTimestamp 
+      },
+      { 
+        id: '3', 
+        name: 'Block Finality', 
+        status: status === 'syncing' ? 'warning' : 'passed', 
+        message: status === 'syncing' ? 'Synchronizing headers' : 'State is final',
+        timestamp: newTimestamp 
+      },
+    ];
+
+    setHealthChecks(updatedChecks);
+    setLastCheck(newTimestamp);
+    
+    const hasFailed = updatedChecks.some(c => c.status === 'failed');
+    const hasWarning = updatedChecks.some(c => c.status === 'warning');
+    
+    if (hasFailed) setHealthStatus('critical');
+    else if (hasWarning) setHealthStatus('warning');
+    else setHealthStatus('healthy');
+    
+    setIsChecking(false);
+  };
 
   // Update status and network mock data
   useEffect(() => {
@@ -132,8 +207,6 @@ export default function NodeDashboard() {
   }, [blockStatus, blockNumber]);
 
   const networkName = chainId === 8453 ? "Base" : chainId === 1 ? "Ethereum" : "Unknown Network";
-
-  // Data for Recharts
   const currentCPU = metrics.length > 0 ? metrics[metrics.length - 1].cpu : 0;
   const currentRAM = metrics.length > 0 ? metrics[metrics.length - 1].ram : 0;
 
@@ -211,22 +284,32 @@ export default function NodeDashboard() {
               Local instance: <span className="text-white font-mono">eth-node-v1-primary</span>
             </p>
           </div>
-          <div className="hidden md:flex gap-8">
-             <div className="text-right">
-              <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-1">Current Network</div>
-              <div className="flex items-center gap-2 justify-end">
-                <Globe size={14} className="text-brand" />
-                <span className="text-sm font-semibold">{networkName}</span>
-              </div>
+          <div className="flex items-center gap-4">
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full glass border ${
+              healthStatus === 'healthy' ? 'border-success/30 bg-success/5' : 
+              healthStatus === 'warning' ? 'border-warning/30 bg-warning/5' : 
+              'border-error/30 bg-error/5'
+            }`}>
+              <HeartPulse size={14} className={
+                healthStatus === 'healthy' ? 'text-success' : 
+                healthStatus === 'warning' ? 'text-warning' : 
+                'text-error'
+              } />
+              <span className="text-xs font-medium uppercase tracking-wider">
+                {healthStatus === 'checking' ? 'System Checking...' : `System ${healthStatus}`}
+              </span>
             </div>
-            <div className="text-right">
-              <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-1">Network Uptime</div>
-              <div className="text-lg font-semibold text-white">{uptime}</div>
-            </div>
+            <button 
+              onClick={runHealthCheck}
+              disabled={isChecking}
+              className="p-2 glass hover:bg-white/10 rounded-lg transition-all disabled:opacity-50"
+            >
+              <RefreshCw size={18} className={isChecking ? "animate-spin text-brand" : "text-white"} />
+            </button>
           </div>
         </header>
 
-        {/* Top Stats Grid */}
+        {/* Global Stats */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
           <StatCard 
             label="Sync Progress" 
@@ -248,24 +331,24 @@ export default function NodeDashboard() {
             icon={<Layers size={14} className="text-[#627EEA]" />}
           />
           <StatCard 
-            label="Gas Price" 
-            value="14" 
-            subValue="Gwei" 
-            icon={<Zap size={14} className="text-brand" />}
+            label="Integrity Health" 
+            value={healthStatus.charAt(0).toUpperCase() + healthStatus.slice(1)} 
+            valueClassName="text-xl"
+            icon={<HeartPulse size={14} className={healthStatus === 'healthy' ? 'text-success' : 'text-warning'} />}
           />
         </section>
 
-        {/* Real-time Monitoring Charts */}
+        {/* Charts Section */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div className="glass p-6">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <Cpu size={16} className="text-brand" />
-                <h3 className="text-sm font-semibold uppercase tracking-widest">CPU Usage (%)</h3>
+                <h3 className="text-sm font-semibold uppercase tracking-widest">CPU Load</h3>
               </div>
               <div className="text-xl font-mono text-brand font-bold">{currentCPU}%</div>
             </div>
-            <div className="h-[200px] w-full">
+            <div className="h-[180px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={metrics}>
                   <defs>
@@ -275,22 +358,6 @@ export default function NodeDashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                  <XAxis 
-                    dataKey="time" 
-                    hide 
-                  />
-                  <YAxis 
-                    domain={[0, 100]} 
-                    stroke="#94A3B8" 
-                    fontSize={10} 
-                    tickLine={false} 
-                    axisLine={false}
-                    tickFormatter={(val) => `${val}%`}
-                  />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#161B22', border: '1px solid #ffffff20', borderRadius: '8px' }}
-                    itemStyle={{ color: '#627EEA' }}
-                  />
                   <Area 
                     type="monotone" 
                     dataKey="cpu" 
@@ -308,11 +375,11 @@ export default function NodeDashboard() {
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
                 <Database size={16} className="text-success" />
-                <h3 className="text-sm font-semibold uppercase tracking-widest">Memory usage (GB)</h3>
+                <h3 className="text-sm font-semibold uppercase tracking-widest">Mem Committed</h3>
               </div>
               <div className="text-xl font-mono text-success font-bold">{currentRAM} GB</div>
             </div>
-            <div className="h-[200px] w-full">
+            <div className="h-[180px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={metrics}>
                   <defs>
@@ -322,22 +389,6 @@ export default function NodeDashboard() {
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                  <XAxis 
-                    dataKey="time" 
-                    hide 
-                  />
-                  <YAxis 
-                    domain={[0, 32]} 
-                    stroke="#94A3B8" 
-                    fontSize={10} 
-                    tickLine={false} 
-                    axisLine={false}
-                    tickFormatter={(val) => `${val}G`}
-                  />
-                  <Tooltip 
-                    contentStyle={{ backgroundColor: '#161B22', border: '1px solid #ffffff20', borderRadius: '8px' }}
-                    itemStyle={{ color: '#00FFA3' }}
-                  />
                   <Area 
                     type="monotone" 
                     dataKey="ram" 
@@ -352,56 +403,106 @@ export default function NodeDashboard() {
           </div>
         </section>
 
-        {/* Footer info & Logs */}
+        {/* Health Check Details & Logs */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-           <div className="lg:col-span-2 glass p-6">
+          {/* Health Checks */}
+          <div className="glass p-6 flex flex-col h-full">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex items-center gap-2">
+                <Shield size={16} className="text-brand" />
+                <h3 className="text-sm font-semibold uppercase tracking-widest">Integrity Report</h3>
+              </div>
+              <span className="text-[10px] text-slate-500 font-mono">Last: {lastCheck}</span>
+            </div>
+            
+            <div className="space-y-3 flex-grow">
+              {healthChecks.map((check) => (
+                <div key={check.id} className="p-3 bg-black/30 rounded-xl border border-white/5 flex items-start gap-3">
+                  <div className="mt-1">
+                    {check.status === 'passed' ? <CheckCircle2 size={16} className="text-success" /> : 
+                     check.status === 'warning' ? <AlertTriangle size={16} className="text-warning" /> : 
+                     <XCircle size={16} className="text-error" />}
+                  </div>
+                  <div className="flex-grow">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold text-white">{check.name}</span>
+                      <span className="text-[10px] text-slate-500 font-mono italic">{check.status.toUpperCase()}</span>
+                    </div>
+                    <p className="text-[11px] text-[#94A3B8] mt-0.5">{check.message}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button 
+              onClick={runHealthCheck}
+              className={`mt-4 w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                isChecking ? 'bg-brand/10 text-brand' : 'bg-brand text-white hover:bg-brand/90'
+              }`}
+            >
+              {isChecking ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
+              {isChecking ? 'Verifying Integrity...' : 'Run Integrity Scan'}
+            </button>
+          </div>
+
+          {/* System Info */}
+          <div className="glass p-6 flex flex-col h-full">
             <div className="flex items-center gap-2 mb-6">
               <HardDrive size={16} className="text-brand" />
-              <h3 className="text-sm font-semibold uppercase tracking-widest">System Health</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-widest">Node Resources</h3>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <HealthItem label="Entropy" value="4,096 bits" status="good" />
-              <HealthItem label="File Descriptors" value="1,402 / 10,000" status="good" />
-              <HealthItem label="Storage Latency" value="0.4ms" status="good" />
-              <HealthItem label="P2P Bandwidth" value="1.2 MB/s" status="good" />
-            </div>
-            <div className="mt-8">
-              <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-2">Storage (SSD)</div>
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden flex">
-                <div className="h-full bg-brand w-[42%]" />
-                <div className="h-full bg-slate-700 w-[58%]" />
+            <div className="space-y-6">
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-[10px] uppercase tracking-widest text-slate-500">SSD Storage (NVMe)</span>
+                  <span className="text-xs font-mono text-white">42%</span>
+                </div>
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: '42%' }}
+                    className="h-full bg-brand" 
+                  />
+                </div>
+                <div className="flex justify-between mt-1 text-[10px] text-slate-500 italic">
+                  <span>842GB Used</span>
+                  <span>1.15TB Available</span>
+                </div>
               </div>
-              <div className="flex justify-between mt-2 text-[11px]">
-                <span className="text-white">842 GB Used</span>
-                <span className="text-[#94A3B8]">1.15 TB available</span>
+
+              <div className="grid grid-cols-2 gap-4">
+                <HealthItem label="Entropy" value="4,096 bits" status="good" />
+                <HealthItem label="I/O Wait" value="0.04ms" status="good" />
+                <HealthItem label="Net In (24h)" value="124.5 GB" status="good" />
+                <HealthItem label="Net Out (24h)" value="42.1 GB" status="good" />
               </div>
             </div>
           </div>
 
-          <div className="glass p-6 flex flex-col h-full min-h-[300px]">
+          {/* Logs */}
+          <div className="glass p-6 flex flex-col h-full">
             <div className="flex items-center gap-2 mb-4">
               <TerminalIcon size={16} className="text-brand" />
-              <h3 className="text-sm font-semibold uppercase tracking-widest">Execution Logs</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-widest">Live Logs</h3>
             </div>
             <div className="flex-grow overflow-hidden relative">
-              <div className="space-y-1 custom-scrollbar overflow-y-auto max-h-[200px]">
+              <div className="space-y-1 custom-scrollbar overflow-y-auto max-h-[180px]">
                 <AnimatePresence initial={false}>
                   {logs.map((log, i) => (
                     <motion.div 
                       key={`${log}-${i}`}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className="text-[11px] font-mono py-1 border-b border-white/5 flex items-center gap-2"
+                      className="text-[10px] font-mono py-1 border-b border-white/5 flex items-center gap-2"
                     >
-                      <span className="text-brand">[{new Date().toLocaleTimeString('en-GB')}]</span>
+                      <span className="text-brand opacity-60">[{new Date().toLocaleTimeString('en-GB')}]</span>
                       <span className="text-white/80 line-clamp-1">{log}</span>
                     </motion.div>
                   ))}
                 </AnimatePresence>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-white/10 text-[11px] text-brand hover:text-brand/80 cursor-pointer transition-colors flex items-center justify-between">
-              <span>View full log history</span>
+            <div className="mt-4 pt-4 border-t border-white/10 text-[10px] text-brand hover:text-brand/80 cursor-pointer transition-colors flex items-center justify-between font-bold">
+              <span>EXPLORE TERMINAL</span>
               <ArrowUpRight size={12} />
             </div>
           </div>
@@ -454,7 +555,7 @@ function HealthItem({ label, value, status }: { label: string, value: string, st
   return (
     <div>
       <div className="text-[9px] uppercase tracking-widest text-[#94A3B8] mb-1">{label}</div>
-      <div className={`text-sm font-semibold ${statusColor}`}>{value}</div>
+      <div className={`text-xs font-bold leading-none ${statusColor}`}>{value}</div>
     </div>
   );
 }
