@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { motion, AnimatePresence } from 'motion/react';
-import { useBlockNumber, useChainId } from 'wagmi';
+import { useBlockNumber, useAccount } from 'wagmi';
 import { 
   Activity, 
   Cpu, 
@@ -15,7 +15,9 @@ import {
   Zap,
   Globe,
   Shield,
-  BarChart3
+  BarChart3,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 
 const LOG_ENTRIES = [
@@ -30,12 +32,15 @@ const LOG_ENTRIES = [
   "Database compaction started"
 ];
 
+type ConnectionStatus = 'connected' | 'syncing' | 'disconnected';
+
 export default function NodeDashboard() {
   const [isReady, setIsReady] = useState(false);
-  const { data: blockNumber } = useBlockNumber({ watch: true });
-  const chainId = useChainId();
+  const { data: blockNumber, status: blockStatus } = useBlockNumber({ watch: true });
+  const { isConnected } = useAccount();
   const [logs, setLogs] = useState<string[]>([]);
   const [uptime, setUptime] = useState("142d 18h 32m");
+  const [status, setStatus] = useState<ConnectionStatus>('connected');
 
   useEffect(() => {
     const init = async () => {
@@ -55,6 +60,17 @@ export default function NodeDashboard() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Update status based on block number loading state or explicit mock for demo
+  useEffect(() => {
+    if (blockStatus === 'pending') {
+      setStatus('syncing');
+    } else if (blockStatus === 'error') {
+      setStatus('disconnected');
+    } else {
+      setStatus('connected');
+    }
+  }, [blockStatus]);
 
   if (!isReady) return null;
 
@@ -84,8 +100,16 @@ export default function NodeDashboard() {
           <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-1">Version</div>
           <div className="text-xs font-mono">Geth v1.13.5-stable</div>
           <div className="flex items-center gap-2 mt-3">
-            <div className="status-pulse" />
-            <span className="text-xs text-[#00FFA3]">Mainnet Online</span>
+            <StatusIndicator status={status} />
+            <span className={`text-xs ${
+              status === 'connected' ? 'text-[#00FFA3]' : 
+              status === 'syncing' ? 'text-[#F59E0B]' : 
+              'text-[#EF4444]'
+            }`}>
+              {status === 'connected' ? 'Mainnet Online' : 
+               status === 'syncing' ? 'Syncing Chain...' : 
+               'Node Disconnected'}
+            </span>
           </div>
         </div>
       </aside>
@@ -109,13 +133,13 @@ export default function NodeDashboard() {
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
           <StatCard 
             label="Sync Progress" 
-            value="88.4%" 
-            highlight 
-            progress={88.4} 
+            value={status === 'syncing' ? "88.4%" : "100%"} 
+            highlight={status === 'syncing'} 
+            progress={status === 'syncing' ? 88.4 : 100} 
           />
           <StatCard 
             label="Active Peers" 
-            value="64" 
+            value={status === 'disconnected' ? "0" : "64"} 
             subValue="/ 100" 
           />
           <StatCard 
@@ -202,6 +226,23 @@ export default function NodeDashboard() {
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+function StatusIndicator({ status }: { status: ConnectionStatus }) {
+  const color = status === 'connected' ? 'text-[#00FFA3]' : status === 'syncing' ? 'text-[#F59E0B]' : 'text-[#EF4444]';
+  
+  return (
+    <div className={`relative flex items-center justify-center`}>
+      <div className={`status-pulse ${color} bg-current`} />
+      {status === 'syncing' && (
+        <motion.div 
+          animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+          transition={{ duration: 2, repeat: Infinity }}
+          className={`absolute inset-0 rounded-full ${color} bg-current opacity-50`}
+        />
+      )}
     </div>
   );
 }

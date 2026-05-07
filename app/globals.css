@@ -9,6 +9,8 @@
 @theme {
   --color-brand: #627EEA;
   --color-success: #00FFA3;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
   --color-glass: rgba(22, 27, 34, 0.6);
 }
 
@@ -27,6 +29,5 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #00FFA3;
-  box-shadow: 0 0 8px #00FFA3;
+  box-shadow: 0 0 8px currentColor;
 }
