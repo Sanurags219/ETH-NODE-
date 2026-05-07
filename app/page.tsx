@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { motion, AnimatePresence } from 'motion/react';
-import { useBlockNumber, useAccount } from 'wagmi';
+import { useBlockNumber, useAccount, useChainId } from 'wagmi';
 import { 
   Activity, 
   Cpu, 
@@ -17,7 +17,11 @@ import {
   Shield,
   BarChart3,
   Wifi,
-  WifiOff
+  WifiOff,
+  Info,
+  Clock,
+  ArrowUpRight,
+  TrendingUp
 } from 'lucide-react';
 
 const LOG_ENTRIES = [
@@ -38,9 +42,13 @@ export default function NodeDashboard() {
   const [isReady, setIsReady] = useState(false);
   const { data: blockNumber, status: blockStatus } = useBlockNumber({ watch: true });
   const { isConnected } = useAccount();
+  const chainId = useChainId();
   const [logs, setLogs] = useState<string[]>([]);
   const [uptime, setUptime] = useState("142d 18h 32m");
   const [status, setStatus] = useState<ConnectionStatus>('connected');
+  const [syncSpeed, setSyncSpeed] = useState("0 KB/s");
+  const [etc, setEtc] = useState("Ready");
+  const [showDetails, setShowDetails] = useState(false);
 
   useEffect(() => {
     const init = async () => {
@@ -61,16 +69,24 @@ export default function NodeDashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Update status based on block number loading state or explicit mock for demo
+  // Update status and network mock data
   useEffect(() => {
     if (blockStatus === 'pending') {
       setStatus('syncing');
+      setSyncSpeed(`${(Math.random() * 5 + 2).toFixed(1)} MB/s`);
+      setEtc("~12m");
     } else if (blockStatus === 'error') {
       setStatus('disconnected');
+      setSyncSpeed("0 KB/s");
+      setEtc("N/A");
     } else {
       setStatus('connected');
+      setSyncSpeed(`${(Math.random() * 50 + 10).toFixed(1)} KB/s`); // Idle bandwidth
+      setEtc("Synchronized");
     }
-  }, [blockStatus]);
+  }, [blockStatus, blockNumber]);
+
+  const networkName = chainId === 8453 ? "Base" : chainId === 1 ? "Ethereum" : "Unknown Network";
 
   if (!isReady) return null;
 
@@ -96,21 +112,44 @@ export default function NodeDashboard() {
           <SidebarItem icon={<Settings size={18} />} label="Settings" />
         </nav>
 
-        <div className="glass p-4 mt-auto">
+        <div className="glass p-4 mt-auto relative overflow-hidden group">
           <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-1">Version</div>
           <div className="text-xs font-mono">Geth v1.13.5-stable</div>
-          <div className="flex items-center gap-2 mt-3">
-            <StatusIndicator status={status} />
-            <span className={`text-xs ${
-              status === 'connected' ? 'text-[#00FFA3]' : 
-              status === 'syncing' ? 'text-[#F59E0B]' : 
-              'text-[#EF4444]'
-            }`}>
-              {status === 'connected' ? 'Mainnet Online' : 
-               status === 'syncing' ? 'Syncing Chain...' : 
-               'Node Disconnected'}
-            </span>
+          <div className="flex items-center justify-between mt-3">
+            <div className="flex items-center gap-2">
+              <StatusIndicator status={status} />
+              <span className={`text-xs font-medium ${
+                status === 'connected' ? 'text-[#00FFA3]' : 
+                status === 'syncing' ? 'text-[#F59E0B]' : 
+                'text-[#EF4444]'
+              }`}>
+                {status === 'connected' ? 'Online' : 
+                 status === 'syncing' ? 'Syncing' : 
+                 'Offline'}
+              </span>
+            </div>
+            <button 
+              onClick={() => setShowDetails(!showDetails)}
+              className="p-1 hover:bg-white/10 rounded-md transition-colors text-[#94A3B8] hover:text-white"
+            >
+              <Info size={14} />
+            </button>
           </div>
+
+          <AnimatePresence>
+            {showDetails && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="mt-3 pt-3 border-t border-white/10 space-y-2 overflow-hidden"
+              >
+                <DetailRow label="Network" value={networkName} />
+                <DetailRow label="Sync Speed" value={syncSpeed} />
+                <DetailRow label="ETC" value={etc} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </aside>
 
@@ -123,11 +162,57 @@ export default function NodeDashboard() {
               Local instance: <span className="text-white font-mono">eth-node-v1-primary</span>
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-1">Network Uptime</div>
-            <div className="text-lg font-semibold text-white">{uptime}</div>
+          <div className="hidden md:flex gap-8">
+             <div className="text-right">
+              <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-1">Current Network</div>
+              <div className="flex items-center gap-2 justify-end">
+                <Globe size={14} className="text-brand" />
+                <span className="text-sm font-semibold">{networkName}</span>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-1">Network Uptime</div>
+              <div className="text-lg font-semibold text-white">{uptime}</div>
+            </div>
           </div>
         </header>
+
+        {/* Connection Health Banner (Visible when syncing or offline) */}
+        <AnimatePresence>
+          {status !== 'connected' && (
+            <motion.div 
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className={`mb-8 p-4 rounded-xl border flex items-center justify-between ${
+                status === 'syncing' ? 'bg-[#F59E0B]/10 border-[#F59E0B]/30' : 'bg-[#EF4444]/10 border-[#EF4444]/30'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className={`p-2 rounded-lg ${status === 'syncing' ? 'bg-[#F59E0B]/20 text-[#F59E0B]' : 'bg-[#EF4444]/20 text-[#EF4444]'}`}>
+                  {status === 'syncing' ? <TrendingUp size={20} /> : <WifiOff size={20} />}
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">
+                    {status === 'syncing' ? 'Synchronizing with Beacon Chain' : 'Connection Interrupted'}
+                  </h4>
+                  <p className="text-xs opacity-70">
+                    {status === 'syncing' ? `Downloading blocks from ${networkName} network at ${syncSpeed}` : 'Retrying P2P handshake in 5s...'}
+                  </p>
+                </div>
+              </div>
+              {status === 'syncing' && (
+                <div className="text-right">
+                  <div className="text-[9px] uppercase tracking-widest opacity-60">Estimated Time</div>
+                  <div className="text-sm font-mono flex items-center gap-2">
+                    <Clock size={12} />
+                    {etc}
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Top Stats Grid */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
@@ -136,21 +221,25 @@ export default function NodeDashboard() {
             value={status === 'syncing' ? "88.4%" : "100%"} 
             highlight={status === 'syncing'} 
             progress={status === 'syncing' ? 88.4 : 100} 
+            icon={<TrendingUp size={14} className={status === 'syncing' ? 'text-warning' : 'text-success'} />}
           />
           <StatCard 
             label="Active Peers" 
             value={status === 'disconnected' ? "0" : "64"} 
             subValue="/ 100" 
+            icon={<Network size={14} className="text-[#627EEA]" />}
           />
           <StatCard 
             label="Current Block" 
             value={blockNumber ? `#${blockNumber.toLocaleString()}` : "Loading..."} 
             valueClassName="text-xl"
+            icon={<Layers size={14} className="text-[#627EEA]" />}
           />
           <StatCard 
             label="Gas Price" 
             value="14" 
             subValue="Gwei" 
+            icon={<Zap size={14} className="text-brand" />}
           />
         </section>
 
@@ -200,7 +289,7 @@ export default function NodeDashboard() {
             </div>
             <div className="flex-grow overflow-hidden relative">
               <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-[#161B22] to-transparent z-10 pointer-events-none" />
-              <div className="space-y-1 pt-2">
+              <div className="space-y-1 pt-2 custom-scrollbar overflow-y-auto">
                 <AnimatePresence initial={false}>
                   {logs.map((log, i) => (
                     <motion.div 
@@ -220,8 +309,9 @@ export default function NodeDashboard() {
                 )}
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t border-white/10 text-[11px] text-brand hover:text-brand/80 cursor-pointer transition-colors">
-              View detailed terminal →
+            <div className="mt-4 pt-4 border-t border-white/10 text-[11px] text-brand hover:text-brand/80 cursor-pointer transition-colors flex items-center justify-between">
+              <span>View detailed terminal</span>
+              <ArrowUpRight size={12} />
             </div>
           </div>
         </section>
@@ -234,13 +324,13 @@ function StatusIndicator({ status }: { status: ConnectionStatus }) {
   const color = status === 'connected' ? 'text-[#00FFA3]' : status === 'syncing' ? 'text-[#F59E0B]' : 'text-[#EF4444]';
   
   return (
-    <div className={`relative flex items-center justify-center`}>
+    <div className="relative flex items-center justify-center">
       <div className={`status-pulse ${color} bg-current`} />
-      {status === 'syncing' && (
+      {(status === 'syncing' || status === 'connected') && (
         <motion.div 
-          animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
-          transition={{ duration: 2, repeat: Infinity }}
-          className={`absolute inset-0 rounded-full ${color} bg-current opacity-50`}
+          animate={{ scale: [1, 1.8, 1], opacity: [0.4, 0, 0.4] }}
+          transition={{ duration: status === 'syncing' ? 1.5 : 3, repeat: Infinity }}
+          className={`absolute inset-0 rounded-full ${color} bg-current opacity-40`}
         />
       )}
     </div>
@@ -259,17 +349,30 @@ function SidebarItem({ icon, label, active = false }: { icon: React.ReactNode, l
   );
 }
 
-function StatCard({ label, value, subValue, highlight = false, progress, valueClassName = "text-2xl" }: { 
+function DetailRow({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="flex justify-between items-center text-[11px]">
+      <span className="text-[#94A3B8]">{label}</span>
+      <span className="font-mono text-white">{value}</span>
+    </div>
+  );
+}
+
+function StatCard({ label, value, subValue, highlight = false, progress, valueClassName = "text-2xl", icon }: { 
   label: string, 
   value: string, 
   subValue?: string, 
   highlight?: boolean,
   progress?: number,
-  valueClassName?: string
+  valueClassName?: string,
+  icon?: React.ReactNode
 }) {
   return (
     <div className={`glass p-5 transition-transform hover:-translate-y-1 ${highlight ? 'neon-glow' : ''}`}>
-      <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-1">{label}</div>
+      <div className="flex justify-between items-start mb-1">
+        <div className="text-[10px] uppercase tracking-widest text-[#94A3B8]">{label}</div>
+        {icon && <div className="opacity-60">{icon}</div>}
+      </div>
       <div className="flex items-baseline gap-1">
         <span className={`${valueClassName} font-semibold text-white`}>{value}</span>
         {subValue && <span className="text-sm text-[#94A3B8] font-normal">{subValue}</span>}
@@ -280,7 +383,7 @@ function StatCard({ label, value, subValue, highlight = false, progress, valueCl
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
             transition={{ duration: 1.5, ease: "easeOut" }}
-            className="h-full bg-gradient-to-r from-brand to-success"
+            className={`h-full ${progress === 100 ? 'bg-success' : 'bg-gradient-to-r from-brand to-warning'}`}
           />
         </div>
       )}
