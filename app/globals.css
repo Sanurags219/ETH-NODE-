@@ -1,0 +1,32 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+:root {
+  --background: 05 07 10;
+  --foreground: 226 232 240;
+}
+
+@theme {
+  --color-brand: #627EEA;
+  --color-success: #00FFA3;
+  --color-glass: rgba(22, 27, 34, 0.6);
+}
+
+.glass {
+  background: rgba(22, 27, 34, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+}
+
+.neon-glow {
+  box-shadow: 0 0 15px rgba(98, 126, 234, 0.4);
+}
+
+.status-pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #00FFA3;
+  box-shadow: 0 0 8px #00FFA3;
+}
