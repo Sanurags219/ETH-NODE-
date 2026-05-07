@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { motion, AnimatePresence } from 'motion/react';
 import { useBlockNumber, useAccount, useChainId } from 'wagmi';
@@ -21,8 +21,18 @@ import {
   Info,
   Clock,
   ArrowUpRight,
-  TrendingUp
+  TrendingUp,
+  HardDrive
 } from 'lucide-react';
+import { 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ResponsiveContainer 
+} from 'recharts';
 
 const LOG_ENTRIES = [
   "Imported new chain segment",
@@ -38,17 +48,26 @@ const LOG_ENTRIES = [
 
 type ConnectionStatus = 'connected' | 'syncing' | 'disconnected';
 
+interface MetricData {
+  time: string;
+  timestamp: number;
+  cpu: number;
+  ram: number;
+}
+
 export default function NodeDashboard() {
   const [isReady, setIsReady] = useState(false);
   const { data: blockNumber, status: blockStatus } = useBlockNumber({ watch: true });
-  const { isConnected } = useAccount();
   const chainId = useChainId();
   const [logs, setLogs] = useState<string[]>([]);
-  const [uptime, setUptime] = useState("142d 18h 32m");
+  const [uptime] = useState("142d 18h 32m");
   const [status, setStatus] = useState<ConnectionStatus>('connected');
   const [syncSpeed, setSyncSpeed] = useState("0 KB/s");
   const [etc, setEtc] = useState("Ready");
   const [showDetails, setShowDetails] = useState(false);
+  
+  // Historical metrics state
+  const [metrics, setMetrics] = useState<MetricData[]>([]);
 
   useEffect(() => {
     const init = async () => {
@@ -61,9 +80,35 @@ export default function NodeDashboard() {
     };
     init();
 
+    // Initialize metrics with some random historical data
+    const initialMetrics: MetricData[] = [];
+    const now = Date.now();
+    for (let i = 60; i >= 0; i--) {
+      const ts = now - i * 60000;
+      initialMetrics.push({
+        time: new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: ts,
+        cpu: Math.floor(Math.random() * 30 + 30),
+        ram: parseFloat((Math.random() * 2 + 16).toFixed(1))
+      });
+    }
+    setMetrics(initialMetrics);
+
     const interval = setInterval(() => {
       const randomLog = LOG_ENTRIES[Math.floor(Math.random() * LOG_ENTRIES.length)];
       setLogs(prev => [randomLog, ...prev].slice(0, 10));
+
+      // Add new metric point
+      const newTs = Date.now();
+      setMetrics(prev => {
+        const next = [...prev, {
+          time: new Date(newTs).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          timestamp: newTs,
+          cpu: Math.floor(Math.random() * 20 + 35),
+          ram: parseFloat((Math.random() * 0.5 + 17.8).toFixed(1))
+        }];
+        return next.slice(-60); // Keep last hour
+      });
     }, 4000);
 
     return () => clearInterval(interval);
@@ -81,12 +126,16 @@ export default function NodeDashboard() {
       setEtc("N/A");
     } else {
       setStatus('connected');
-      setSyncSpeed(`${(Math.random() * 50 + 10).toFixed(1)} KB/s`); // Idle bandwidth
+      setSyncSpeed(`${(Math.random() * 50 + 10).toFixed(1)} KB/s`);
       setEtc("Synchronized");
     }
   }, [blockStatus, blockNumber]);
 
   const networkName = chainId === 8453 ? "Base" : chainId === 1 ? "Ethereum" : "Unknown Network";
+
+  // Data for Recharts
+  const currentCPU = metrics.length > 0 ? metrics[metrics.length - 1].cpu : 0;
+  const currentRAM = metrics.length > 0 ? metrics[metrics.length - 1].ram : 0;
 
   if (!isReady) return null;
 
@@ -177,43 +226,6 @@ export default function NodeDashboard() {
           </div>
         </header>
 
-        {/* Connection Health Banner (Visible when syncing or offline) */}
-        <AnimatePresence>
-          {status !== 'connected' && (
-            <motion.div 
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className={`mb-8 p-4 rounded-xl border flex items-center justify-between ${
-                status === 'syncing' ? 'bg-[#F59E0B]/10 border-[#F59E0B]/30' : 'bg-[#EF4444]/10 border-[#EF4444]/30'
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${status === 'syncing' ? 'bg-[#F59E0B]/20 text-[#F59E0B]' : 'bg-[#EF4444]/20 text-[#EF4444]'}`}>
-                  {status === 'syncing' ? <TrendingUp size={20} /> : <WifiOff size={20} />}
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm">
-                    {status === 'syncing' ? 'Synchronizing with Beacon Chain' : 'Connection Interrupted'}
-                  </h4>
-                  <p className="text-xs opacity-70">
-                    {status === 'syncing' ? `Downloading blocks from ${networkName} network at ${syncSpeed}` : 'Retrying P2P handshake in 5s...'}
-                  </p>
-                </div>
-              </div>
-              {status === 'syncing' && (
-                <div className="text-right">
-                  <div className="text-[9px] uppercase tracking-widest opacity-60">Estimated Time</div>
-                  <div className="text-sm font-mono flex items-center gap-2">
-                    <Clock size={12} />
-                    {etc}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
         {/* Top Stats Grid */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
           <StatCard 
@@ -243,74 +255,153 @@ export default function NodeDashboard() {
           />
         </section>
 
-        {/* Performance & Logs */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 flex-grow min-h-[400px]">
-          <div className="lg:col-span-2 glass p-6 flex flex-col">
+        {/* Real-time Monitoring Charts */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="glass p-6">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-sm font-semibold uppercase tracking-widest">Performance Metrics</h3>
-              <div className="flex gap-4 text-[11px] text-[#94A3B8]">
-                <span>CPU: 42%</span>
-                <span>RAM: 18.2GB</span>
+              <div className="flex items-center gap-2">
+                <Cpu size={16} className="text-brand" />
+                <h3 className="text-sm font-semibold uppercase tracking-widest">CPU Usage (%)</h3>
               </div>
+              <div className="text-xl font-mono text-brand font-bold">{currentCPU}%</div>
             </div>
-            
-            <div className="flex-grow border-b border-white/10 flex items-end gap-1.5 pb-2">
-              {[40, 65, 55, 85, 70, 95, 75, 60, 80, 45, 90, 50, 70, 85, 60].map((h, i) => (
-                <motion.div 
-                  key={i} 
-                  initial={{ height: 0 }}
-                  animate={{ height: `${h}%` }}
-                  transition={{ duration: 1, delay: i * 0.05 }}
-                  className={`flex-1 rounded-sm ${i === 5 ? 'bg-[#627EEA]' : 'bg-brand/30'}`}
-                />
-              ))}
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={metrics}>
+                  <defs>
+                    <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#627EEA" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#627EEA" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                  <XAxis 
+                    dataKey="time" 
+                    hide 
+                  />
+                  <YAxis 
+                    domain={[0, 100]} 
+                    stroke="#94A3B8" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    axisLine={false}
+                    tickFormatter={(val) => `${val}%`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#161B22', border: '1px solid #ffffff20', borderRadius: '8px' }}
+                    itemStyle={{ color: '#627EEA' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="cpu" 
+                    stroke="#627EEA" 
+                    fillOpacity={1} 
+                    fill="url(#colorCpu)" 
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
             </div>
+          </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-5">
-              <div className="p-3 bg-black/20 rounded-lg">
-                <div className="text-[9px] uppercase tracking-widest text-[#94A3B8] mb-1">Disk Usage</div>
-                <div className="text-sm">
-                  842GB <span className="opacity-50">/ 2TB SSD</span>
-                </div>
+          <div className="glass p-6">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-2">
+                <Database size={16} className="text-success" />
+                <h3 className="text-sm font-semibold uppercase tracking-widest">Memory usage (GB)</h3>
               </div>
-              <div className="p-3 bg-black/20 rounded-lg">
-                <div className="text-[9px] uppercase tracking-widest text-[#94A3B8] mb-1">Bandwidth (24h)</div>
-                <div className="text-sm">
-                  124GB In / 42GB Out
-                </div>
+              <div className="text-xl font-mono text-success font-bold">{currentRAM} GB</div>
+            </div>
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={metrics}>
+                  <defs>
+                    <linearGradient id="colorRam" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00FFA3" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#00FFA3" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
+                  <XAxis 
+                    dataKey="time" 
+                    hide 
+                  />
+                  <YAxis 
+                    domain={[0, 32]} 
+                    stroke="#94A3B8" 
+                    fontSize={10} 
+                    tickLine={false} 
+                    axisLine={false}
+                    tickFormatter={(val) => `${val}G`}
+                  />
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#161B22', border: '1px solid #ffffff20', borderRadius: '8px' }}
+                    itemStyle={{ color: '#00FFA3' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="ram" 
+                    stroke="#00FFA3" 
+                    fillOpacity={1} 
+                    fill="url(#colorRam)" 
+                    isAnimationActive={false}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </section>
+
+        {/* Footer info & Logs */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+           <div className="lg:col-span-2 glass p-6">
+            <div className="flex items-center gap-2 mb-6">
+              <HardDrive size={16} className="text-brand" />
+              <h3 className="text-sm font-semibold uppercase tracking-widest">System Health</h3>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <HealthItem label="Entropy" value="4,096 bits" status="good" />
+              <HealthItem label="File Descriptors" value="1,402 / 10,000" status="good" />
+              <HealthItem label="Storage Latency" value="0.4ms" status="good" />
+              <HealthItem label="P2P Bandwidth" value="1.2 MB/s" status="good" />
+            </div>
+            <div className="mt-8">
+              <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-2">Storage (SSD)</div>
+              <div className="h-2 bg-white/10 rounded-full overflow-hidden flex">
+                <div className="h-full bg-brand w-[42%]" />
+                <div className="h-full bg-slate-700 w-[58%]" />
+              </div>
+              <div className="flex justify-between mt-2 text-[11px]">
+                <span className="text-white">842 GB Used</span>
+                <span className="text-[#94A3B8]">1.15 TB available</span>
               </div>
             </div>
           </div>
 
-          <div className="glass p-6 flex flex-col h-full">
+          <div className="glass p-6 flex flex-col h-full min-h-[300px]">
             <div className="flex items-center gap-2 mb-4">
               <TerminalIcon size={16} className="text-brand" />
               <h3 className="text-sm font-semibold uppercase tracking-widest">Execution Logs</h3>
             </div>
             <div className="flex-grow overflow-hidden relative">
-              <div className="absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-[#161B22] to-transparent z-10 pointer-events-none" />
-              <div className="space-y-1 pt-2 custom-scrollbar overflow-y-auto">
+              <div className="space-y-1 custom-scrollbar overflow-y-auto max-h-[200px]">
                 <AnimatePresence initial={false}>
                   {logs.map((log, i) => (
                     <motion.div 
                       key={`${log}-${i}`}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0 }}
                       className="text-[11px] font-mono py-1 border-b border-white/5 flex items-center gap-2"
                     >
                       <span className="text-brand">[{new Date().toLocaleTimeString('en-GB')}]</span>
-                      <span className="text-white/80">{log}</span>
+                      <span className="text-white/80 line-clamp-1">{log}</span>
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {logs.length === 0 && (
-                  <div className="text-[11px] text-[#94A3B8] font-mono">Connecting to P2P network...</div>
-                )}
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-white/10 text-[11px] text-brand hover:text-brand/80 cursor-pointer transition-colors flex items-center justify-between">
-              <span>View detailed terminal</span>
+              <span>View full log history</span>
               <ArrowUpRight size={12} />
             </div>
           </div>
@@ -354,6 +445,16 @@ function DetailRow({ label, value }: { label: string, value: string }) {
     <div className="flex justify-between items-center text-[11px]">
       <span className="text-[#94A3B8]">{label}</span>
       <span className="font-mono text-white">{value}</span>
+    </div>
+  );
+}
+
+function HealthItem({ label, value, status }: { label: string, value: string, status: 'good' | 'warning' | 'critical' }) {
+  const statusColor = status === 'good' ? 'text-success' : status === 'warning' ? 'text-warning' : 'text-error';
+  return (
+    <div>
+      <div className="text-[9px] uppercase tracking-widest text-[#94A3B8] mb-1">{label}</div>
+      <div className={`text-sm font-semibold ${statusColor}`}>{value}</div>
     </div>
   );
 }

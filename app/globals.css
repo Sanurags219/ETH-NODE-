@@ -1,17 +1,17 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-:root {
-  --background: 05 07 10;
-  --foreground: 226 232 240;
-}
-
 @theme {
   --color-brand: #627EEA;
   --color-success: #00FFA3;
   --color-warning: #F59E0B;
   --color-error: #EF4444;
   --color-glass: rgba(22, 27, 34, 0.6);
+}
+
+:root {
+  --background: 05 07 10;
+  --foreground: 226 232 240;
 }
 
 .glass {
