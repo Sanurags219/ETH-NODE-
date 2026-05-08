@@ -10,6 +10,12 @@ import * as d3 from 'd3';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Filter, X, Globe, Users, Zap, Shield, Clock, Network, Activity, ChevronDown, ChevronUp, Loader2, Signal } from 'lucide-react';
 
+interface NodeHistory {
+  timestamp: string;
+  status: 'active' | 'syncing' | 'idle';
+  latency: number;
+}
+
 interface Node extends d3.SimulationNodeDatum {
   id: string;
   group: number;
@@ -24,60 +30,83 @@ interface Node extends d3.SimulationNodeDatum {
   memoryLimit: number;
   version: string;
   os: string;
+  history: NodeHistory[];
 }
 
 interface Link extends d3.SimulationLinkDatum<Node> {
   value: number;
 }
 
+const generateMockHistory = (baseLatency: number): NodeHistory[] => {
+  const history: NodeHistory[] = [];
+  const now = new Date();
+  for (let i = 0; i < 10; i++) {
+    const time = new Date(now.getTime() - i * 3600000 * 2); // Every 2 hours
+    history.push({
+      timestamp: time.toISOString(),
+      status: Math.random() > 0.1 ? 'active' : 'idle',
+      latency: Math.max(5, baseLatency + Math.floor(Math.random() * 20) - 10)
+    });
+  }
+  return history;
+};
+
 const INITIAL_NODES: Node[] = [
   { 
     id: 'local-node', group: 1, label: 'Local Node', latency: 0, 
     location: 'San Francisco, US', ip: '192.168.1.42', status: 'active', 
     lastSeen: 'Now', uptime: '142d 18h', cpuLimit: 90, memoryLimit: 85,
-    version: 'v2.4.1-alpha', os: 'Alpine Linux 3.18'
+    version: 'v2.4.1-alpha', os: 'Alpine Linux 3.18',
+    history: generateMockHistory(5)
   },
   { 
     id: 'peer-1', group: 2, label: 'Peer 0x71...f2', latency: 45, 
     location: 'London, UK', ip: '82.14.22.103', status: 'active', 
     lastSeen: '2s ago', uptime: '12d 4h', cpuLimit: 80, memoryLimit: 75,
-    version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS'
+    version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS',
+    history: generateMockHistory(45)
   },
   { 
     id: 'peer-2', group: 2, label: 'Peer 0x3a...11', latency: 120, 
     location: 'Tokyo, JP', ip: '114.162.3.99', status: 'active', 
     lastSeen: '15s ago', uptime: '3d 2h', cpuLimit: 70, memoryLimit: 60,
-    version: 'v2.3.8-stable', os: 'Debian 12'
+    version: 'v2.3.8-stable', os: 'Debian 12',
+    history: generateMockHistory(120)
   },
   { 
     id: 'peer-3', group: 2, label: 'Peer 0xbc...44', latency: 15, 
     location: 'New York, US', ip: '104.28.18.22', status: 'active', 
     lastSeen: 'Now', uptime: '45d 11h', cpuLimit: 95, memoryLimit: 90,
-    version: 'v2.4.0-rc1', os: 'Alpine Linux 3.19'
+    version: 'v2.4.0-rc1', os: 'Alpine Linux 3.19',
+    history: generateMockHistory(15)
   },
   { 
     id: 'peer-4', group: 2, label: 'Peer 0x92...8e', latency: 85, 
     location: 'Berlin, DE', ip: '172.67.74.1', status: 'syncing', 
     lastSeen: 'Syncing', uptime: '0d 12h', cpuLimit: 75, memoryLimit: 70,
-    version: 'v2.3.9-stable', os: 'Ubuntu 20.04 LTS'
+    version: 'v2.3.9-stable', os: 'Ubuntu 20.04 LTS',
+    history: generateMockHistory(85)
   },
   { 
     id: 'peer-5', group: 2, label: 'Peer 0x11...cd', latency: 210, 
     location: 'Sydney, AU', ip: '1.1.1.1', status: 'idle', 
     lastSeen: '2m ago', uptime: '8d 14h', cpuLimit: 60, memoryLimit: 50,
-    version: 'v2.2.1-legacy', os: 'CentOS Stream 9'
+    version: 'v2.2.1-legacy', os: 'CentOS Stream 9',
+    history: generateMockHistory(210)
   },
   { 
     id: 'peer-6', group: 2, label: 'Peer 0xef...22', latency: 60, 
     location: 'Paris, FR', ip: '185.199.108.153', status: 'active', 
     lastSeen: '5s ago', uptime: '14d 6h', cpuLimit: 85, memoryLimit: 80,
-    version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS'
+    version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS',
+    history: generateMockHistory(60)
   },
   { 
     id: 'peer-7', group: 2, label: 'Peer 0x44...9a', latency: 30, 
     location: 'Toronto, CA', ip: '142.251.33.110', status: 'active', 
     lastSeen: '1s ago', uptime: '90d 1h', cpuLimit: 88, memoryLimit: 82,
-    version: 'v2.4.0-rc2', os: 'Alpine Linux 3.19'
+    version: 'v2.4.0-rc2', os: 'Alpine Linux 3.19',
+    history: generateMockHistory(30)
   },
 ];
 
@@ -108,6 +137,9 @@ export default function NetworkMap() {
 
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnosticStep, setDiagnosticStep] = useState(0);
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
 
   // Real-time Simulation Loop
   useEffect(() => {
@@ -180,6 +212,8 @@ export default function NetworkMap() {
     if (pingResult !== null) setPingResult(null);
     if (isPinging) setIsPinging(false);
     if (showMoreDetails) setShowMoreDetails(false);
+    if (showHistory) setShowHistory(false);
+    if (timeRange !== '24h') setTimeRange('24h');
     if (isDiagnosing) setIsDiagnosing(false);
     if (diagnosticStep !== 0) setDiagnosticStep(0);
   }, [selectedNode, pingResult, isPinging, showMoreDetails, isDiagnosing, diagnosticStep]);
@@ -537,6 +571,13 @@ export default function NetworkMap() {
                       {showMoreDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       DETAILS
                     </button>
+                    <button 
+                      onClick={() => setShowHistory(!showHistory)}
+                      className={`px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all ${showHistory ? 'ring-1 ring-[#627EEA]/50 bg-white/10' : ''}`}
+                    >
+                      <Clock size={14} className={showHistory ? 'text-[#627EEA]' : ''} />
+                      HISTORY
+                    </button>
                   </div>
 
                   {pingResult !== null && (
@@ -549,6 +590,64 @@ export default function NetworkMap() {
                       <span className="text-xs font-mono font-bold text-[#00FFA3] tracking-wider">{pingResult}ms</span>
                     </motion.div>
                   )}
+
+                  <AnimatePresence>
+                    {showHistory && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden space-y-4 pt-2"
+                      >
+                        <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
+                          <div className="flex items-center justify-between">
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] font-bold">Historical Data</div>
+                            <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
+                              {(['24h', '7d', '30d'] as const).map((range) => (
+                                <button
+                                  key={range}
+                                  onClick={() => setTimeRange(range)}
+                                  className={`px-2 py-1 text-[8px] font-bold rounded-md transition-all ${timeRange === range ? 'bg-[#627EEA] text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                                >
+                                  {range.toUpperCase()}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                            {selectedNode.history.map((event, idx) => (
+                              <div key={idx} className="flex gap-3 relative">
+                                {idx !== selectedNode.history.length - 1 && (
+                                  <div className="absolute left-1.5 top-4 bottom-0 w-[1px] bg-white/5" />
+                                )}
+                                <div className={`mt-1.5 w-3 h-3 rounded-full flex-shrink-0 z-10 ${event.status === 'active' ? 'bg-[#00FFA3]/20 border border-[#00FFA3]/50' : 'bg-slate-500/20 border border-slate-500/50'}`}>
+                                  <div className={`w-1 h-1 rounded-full m-auto mt-0.5 ${event.status === 'active' ? 'bg-[#00FFA3]' : 'bg-slate-400'}`} />
+                                </div>
+                                <div className="flex-grow space-y-1 pb-3">
+                                  <div className="flex justify-between items-center">
+                                    <span className="text-[9px] font-bold text-white uppercase tracking-tight">STATUS: {event.status.toUpperCase()}</span>
+                                    <span className="text-[8px] font-mono text-slate-500">
+                                      {new Date(event.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <Zap size={8} className="text-[#627EEA]" />
+                                    <span className="text-[9px] font-mono text-slate-400">Latency: {event.latency}ms</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="pt-2 border-t border-white/5 flex justify-between items-center">
+                            <span className="text-[9px] text-slate-500">Uptime Record</span>
+                            <span className="text-[10px] font-mono text-[#00FFA3]">99.98% Confidence</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   <AnimatePresence>
                     {showMoreDetails && (
