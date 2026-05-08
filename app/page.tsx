@@ -39,6 +39,7 @@ import {
   Tooltip, 
   ResponsiveContainer 
 } from 'recharts';
+import NetworkMap from '@/components/NetworkMap';
 
 const LOG_ENTRIES = [
   "Imported new chain segment",
@@ -337,6 +338,8 @@ export default function NodeDashboard() {
             icon={<HeartPulse size={14} className={healthStatus === 'healthy' ? 'text-success' : 'text-warning'} />}
           />
         </section>
+
+        <NetworkMap />
 
         {/* Charts Section */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

@@ -1,38 +1,40 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-
-@theme {
-  --color-brand: #627EEA;
-  --color-success: #00FFA3;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
-  --color-glass: rgba(22, 27, 34, 0.6);
-}
 
 :root {
-  --background: 05 07 10;
-  --foreground: 226 232 240;
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 5, 7, 10;
+  --background-end-rgb: 0, 0, 0;
 }
 
-.glass {
-  background: rgba(22, 27, 34, 0.6);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
+body {
+  color: rgb(var(--foreground-rgb));
+  background: linear-gradient(
+      to bottom,
+      transparent,
+      rgb(var(--background-end-rgb))
+    )
+    rgb(var(--background-start-rgb));
+  min-height: 100vh;
 }
 
-.neon-glow {
-  box-shadow: 0 0 15px rgba(98, 126, 234, 0.4);
+@layer components {
+  .glass {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
+  }
+
+  .neon-glow {
+    @apply shadow-[0_0_20px_rgba(98,126,234,0.3)] border-brand/50;
+  }
+
+  .stat-card {
+    @apply glass p-5 transition-all duration-300 hover:bg-white/10;
+  }
 }
 
 .status-pulse {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  box-shadow: 0 0 8px currentColor;
+  @apply w-2 h-2 rounded-full relative;
 }
 
-/* Custom scrollbar to keep it sleek */
 .custom-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
