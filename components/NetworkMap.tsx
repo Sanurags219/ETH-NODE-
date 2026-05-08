@@ -7,7 +7,11 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Filter, X, Globe, Users, Zap, Shield, Clock, Network, Activity, ChevronDown, ChevronUp, Loader2, Signal } from 'lucide-react';
+import { 
+  Search, Filter, X, Globe, Users, Zap, Shield, 
+  Clock, Network, Activity, ChevronDown, ChevronUp, 
+  Loader2, Signal, Cpu, HardDrive, Info, Terminal
+} from 'lucide-react';
 
 interface NodeHistory {
   timestamp: string;
@@ -30,9 +34,13 @@ interface Node extends d3.SimulationNodeDatum {
   version: string;
   os: string;
   history: NodeHistory[];
+  peerId: string;
+  listenAddrs: string[];
 }
 
 interface Link extends d3.SimulationLinkDatum<Node> {
+  source: string | Node;
+  target: string | Node;
   value: number;
 }
 
@@ -40,7 +48,7 @@ const generateMockHistory = (baseLatency: number): NodeHistory[] => {
   const history: NodeHistory[] = [];
   const now = new Date();
   for (let i = 0; i < 10; i++) {
-    const time = new Date(now.getTime() - i * 3600000 * 2); // Every 2 hours
+    const time = new Date(now.getTime() - i * 3600000 * 2);
     history.push({
       timestamp: time.toISOString(),
       status: Math.random() > 0.1 ? 'active' : 'idle',
@@ -56,57 +64,46 @@ const INITIAL_NODES: Node[] = [
     location: 'San Francisco, US', ip: '192.168.1.42', status: 'active', 
     lastSeen: 'Now', uptime: '142d 18h', cpuLimit: 90, memoryLimit: 85,
     version: 'v2.4.1-alpha', os: 'Alpine Linux 3.18',
-    history: generateMockHistory(5)
+    history: generateMockHistory(5),
+    peerId: '12D3KooW...sf9w',
+    listenAddrs: ['/ip4/127.0.0.1/tcp/4001', '/ip4/192.168.1.42/tcp/4001']
   },
   { 
     id: 'peer-1', group: 2, label: 'Peer 0x71...f2', latency: 45, 
-    location: 'London, UK', ip: '82.14.22.103', status: 'active', 
+    location: 'London, UK', ip: '85.12.33.210', status: 'active', 
     lastSeen: '2s ago', uptime: '12d 4h', cpuLimit: 80, memoryLimit: 75,
     version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS',
-    history: generateMockHistory(45)
+    history: generateMockHistory(45),
+    peerId: '12D3KooL...P9x7',
+    listenAddrs: ['/ip4/85.12.33.210/tcp/4001']
   },
   { 
     id: 'peer-2', group: 2, label: 'Peer 0x3a...11', latency: 120, 
-    location: 'Tokyo, JP', ip: '114.162.3.99', status: 'active', 
+    location: 'Tokyo, JP', ip: '103.4.112.5', status: 'idle', 
     lastSeen: '15s ago', uptime: '3d 2h', cpuLimit: 70, memoryLimit: 60,
     version: 'v2.3.8-stable', os: 'Debian 12',
-    history: generateMockHistory(120)
+    history: generateMockHistory(120),
+    peerId: '12D3KooK...Lm22',
+    listenAddrs: ['/ip4/103.4.112.5/tcp/4001']
   },
   { 
     id: 'peer-3', group: 2, label: 'Peer 0xbc...44', latency: 15, 
-    location: 'New York, US', ip: '104.28.18.22', status: 'active', 
+    location: 'New York, US', ip: '162.243.12.8', status: 'active', 
     lastSeen: 'Now', uptime: '45d 11h', cpuLimit: 95, memoryLimit: 90,
     version: 'v2.4.0-rc1', os: 'Alpine Linux 3.19',
-    history: generateMockHistory(15)
+    history: generateMockHistory(15),
+    peerId: '12D3KooJ...Qq55',
+    listenAddrs: ['/ip4/162.243.12.8/tcp/4001']
   },
   { 
     id: 'peer-4', group: 2, label: 'Peer 0x92...8e', latency: 85, 
-    location: 'Berlin, DE', ip: '172.67.74.1', status: 'syncing', 
+    location: 'Berlin, DE', ip: '94.23.4.156', status: 'syncing', 
     lastSeen: 'Syncing', uptime: '0d 12h', cpuLimit: 75, memoryLimit: 70,
     version: 'v2.3.9-stable', os: 'Ubuntu 20.04 LTS',
-    history: generateMockHistory(85)
-  },
-  { 
-    id: 'peer-5', group: 2, label: 'Peer 0x11...cd', latency: 210, 
-    location: 'Sydney, AU', ip: '1.1.1.1', status: 'idle', 
-    lastSeen: '2m ago', uptime: '8d 14h', cpuLimit: 60, memoryLimit: 50,
-    version: 'v2.2.1-legacy', os: 'CentOS Stream 9',
-    history: generateMockHistory(210)
-  },
-  { 
-    id: 'peer-6', group: 2, label: 'Peer 0xef...22', latency: 60, 
-    location: 'Paris, FR', ip: '185.199.108.153', status: 'active', 
-    lastSeen: '5s ago', uptime: '14d 6h', cpuLimit: 85, memoryLimit: 80,
-    version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS',
-    history: generateMockHistory(60)
-  },
-  { 
-    id: 'peer-7', group: 2, label: 'Peer 0x44...9a', latency: 30, 
-    location: 'Toronto, CA', ip: '142.251.33.110', status: 'active', 
-    lastSeen: '1s ago', uptime: '90d 1h', cpuLimit: 88, memoryLimit: 82,
-    version: 'v2.4.0-rc2', os: 'Alpine Linux 3.19',
-    history: generateMockHistory(30)
-  },
+    history: generateMockHistory(85),
+    peerId: '12D3KooH...As11',
+    listenAddrs: ['/ip4/94.23.4.156/tcp/4001']
+  }
 ];
 
 const INITIAL_LINKS: Link[] = [
@@ -114,239 +111,89 @@ const INITIAL_LINKS: Link[] = [
   { source: 'local-node', target: 'peer-2', value: 1 },
   { source: 'local-node', target: 'peer-3', value: 1 },
   { source: 'local-node', target: 'peer-4', value: 1 },
-  { source: 'local-node', target: 'peer-5', value: 1 },
-  { source: 'local-node', target: 'peer-6', value: 1 },
-  { source: 'local-node', target: 'peer-7', value: 1 },
 ];
 
-export default function NetworkMap() {
-  const svgRef = useRef<SVGSVGElement>(null);
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
+export function NetworkMap() {
   const [nodes, setNodes] = useState<Node[]>(INITIAL_NODES);
-  const [links] = useState<Link[]>(INITIAL_LINKS);
-  
+  const [links, setLinks] = useState<Link[]>(INITIAL_LINKS);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'syncing' | 'idle'>('all');
-
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [isPinging, setIsPinging] = useState(false);
   const [pingResult, setPingResult] = useState<number | null>(null);
-  const [showMoreDetails, setShowMoreDetails] = useState(false);
-
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnosticStep, setDiagnosticStep] = useState(0);
-
   const [showHistory, setShowHistory] = useState(false);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
 
-  // Real-time Simulation Loop
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setNodes(prevNodes => prevNodes.map(node => {
-        // Don't simulate changes for the local node
-        if (node.id === 'local-node') return node;
-
-        // Randomly update latency slightly
-        const latencyChange = Math.floor(Math.random() * 11) - 5; // -5 to +5
-        const newLatency = Math.max(5, node.latency + latencyChange);
-
-        // Randomly update status occasionally (5% chance)
-        let newStatus = node.status;
-        let lastSeen = node.lastSeen;
-        if (Math.random() < 0.05) {
-          const statuses: ('active' | 'syncing' | 'idle')[] = ['active', 'syncing', 'idle'];
-          newStatus = statuses[Math.floor(Math.random() * statuses.length)];
-          
-          if (newStatus === 'active') lastSeen = 'Now';
-          else if (newStatus === 'syncing') lastSeen = 'Syncing';
-          else lastSeen = `${Math.floor(Math.random() * 60)}s ago`;
-        }
-
-        // Randomly update uptime string occasionally
-        const newUptime = node.uptime;
-
-        return {
-          ...node,
-          latency: newLatency,
-          status: newStatus,
-          lastSeen
-        };
-      }));
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handlePingNode = async () => {
-    if (!selectedNode) return;
-    setIsPinging(true);
-    setPingResult(null);
-    
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    // Random jitter around base latency
-    const baseLatency = selectedNode.latency || 45;
-    const jitter = Math.floor(Math.random() * 15) - 7;
-    setPingResult(Math.max(5, baseLatency + jitter));
-    setIsPinging(false);
-  };
-
-  const handleRunDiagnostic = async () => {
-    if (!selectedNode) return;
-    setIsDiagnosing(true);
-    setDiagnosticStep(1);
-    await new Promise(r => setTimeout(r, 1200));
-    setDiagnosticStep(2);
-    await new Promise(r => setTimeout(r, 1500));
-    setDiagnosticStep(3);
-    await new Promise(r => setTimeout(r, 1200));
-    setIsDiagnosing(false);
-    setDiagnosticStep(0);
-  };
-
-  // Reset states when node selection changes
-  useEffect(() => {
-    if (pingResult !== null) setPingResult(null);
-    if (isPinging) setIsPinging(false);
-    if (showMoreDetails) setShowMoreDetails(false);
-    if (showHistory) setShowHistory(false);
-    if (timeRange !== '24h') setTimeRange('24h');
-    if (isDiagnosing) setIsDiagnosing(false);
-    if (diagnosticStep !== 0) setDiagnosticStep(0);
-  }, [selectedNode, pingResult, isPinging, showMoreDetails, isDiagnosing, diagnosticStep]);
-
+  const svgRef = useRef<SVGSVGElement>(null);
+  const simulationRef = useRef<d3.Simulation<Node, Link> | null>(null);
   const prevNodesRef = useRef<Node[]>([]);
 
-  const filteredNodes = useMemo(() => {
-    const filtered = nodes.filter(node => {
-      const matchesSearch = 
-        node.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        node.ip.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        node.location.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      const matchesStatus = statusFilter === 'all' || node.status === statusFilter;
-      
-      return matchesSearch && matchesStatus;
-    });
-
-    // Preserve positions from previous simulation state to prevent "jumping"
-    return filtered.map(node => {
-      const prev = prevNodesRef.current.find(p => p.id === node.id);
-      if (prev) {
-        return {
-          ...node,
-          x: prev.x,
-          y: prev.y,
-          vx: prev.vx,
-          vy: prev.vy,
-          fx: (node.id === selectedNode?.id) ? prev.x : null,
-          fy: (node.id === selectedNode?.id) ? prev.y : null
-        };
-      }
-      return node;
-    });
-  }, [nodes, searchQuery, statusFilter, selectedNode?.id]);
-
-  const filteredLinks = useMemo(() => {
-    return links.filter(link => {
-      const sourceId = typeof link.source === 'string' ? link.source : (link.source as Node).id;
-      const targetId = typeof link.target === 'string' ? link.target : (link.target as Node).id;
-      return filteredNodes.find(n => n.id === sourceId) && filteredNodes.find(n => n.id === targetId);
-    });
-  }, [filteredNodes, links]);
-
+  // Simulation setup
   useEffect(() => {
     if (!svgRef.current) return;
 
     const width = svgRef.current.clientWidth;
-    const height = 400;
+    const height = svgRef.current.clientHeight;
 
-    const svg = d3.select(svgRef.current)
-      .attr('viewBox', [0, 0, width, height]);
+    const simulation = d3.forceSimulation<Node>(nodes)
+      .force('link', d3.forceLink<Node, Link>(links).id(d => d.id).distance(150))
+      .force('charge', d3.forceManyBody().strength(-400))
+      .force('center', d3.forceCenter(width / 2, height / 2))
+      .force('collision', d3.forceCollide().radius(40));
 
+    simulationRef.current = simulation;
+
+    const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
 
-    const simulation = d3.forceSimulation<Node>(filteredNodes)
-      .force('link', d3.forceLink<Node, Link>(filteredLinks).id(d => d.id).distance(120))
-      .force('charge', d3.forceManyBody().strength(-400))
-      .force('center', d3.forceCenter(width / 2, height / 2));
+    const g = svg.append('g');
 
-    const link = svg.append('g')
-      .attr('stroke', '#ffffff20')
-      .attr('stroke-opacity', 0.6)
+    const link = g.append('g')
       .selectAll('line')
-      .data(filteredLinks)
+      .data(links)
       .join('line')
-      .attr('stroke-width', d => Math.sqrt(d.value) * 1.5);
+      .attr('stroke', '#627EEA')
+      .attr('stroke-opacity', 0.2)
+      .attr('stroke-width', 1);
 
-    const node = svg.append('g')
-      .selectAll('g')
-      .data(filteredNodes)
+    const node = g.append('g')
+      .selectAll('.node')
+      .data(nodes)
       .join('g')
-      .attr('class', 'node-group cursor-pointer')
-      .call(d3.drag<SVGGElement, Node>()
+      .attr('class', 'node')
+      .on('click', (event, d) => setSelectedNode(d))
+      .call(d3.drag<any, Node>()
         .on('start', dragstarted)
         .on('drag', dragged)
-        .on('end', dragended) as any)
-      .on('click', (event, d) => setSelectedNode(d))
-      .on('mouseover', (event, d) => {
-        setHoveredNode(d);
-        setTooltipPos({ x: event.pageX, y: event.pageY });
-      })
-      .on('mousemove', (event) => {
-        setTooltipPos({ x: event.pageX, y: event.pageY });
-      })
-      .on('mouseout', () => {
-        setHoveredNode(null);
-      });
-
-    // Glow effect filter
-    const defs = svg.append('defs');
-    const filter = defs.append('filter')
-      .attr('id', 'glow');
-    filter.append('feGaussianBlur')
-      .attr('stdDeviation', '3')
-      .attr('result', 'coloredBlur');
-    const feMerge = filter.append('feMerge');
-    feMerge.append('feMergeNode').attr('in', 'coloredBlur');
-    feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
-
-    // Add ripple effect for active nodes
-    node.append('circle')
-      .attr('r', d => d.id === 'local-node' ? 14 : 9)
-      .attr('class', d => d.status === 'active' || d.id === 'local-node' ? 'node-ripple' : d.status === 'syncing' ? 'node-sync' : '')
-      .attr('fill', d => {
-        if (d.id === 'local-node') return '#627EEA';
-        if (d.status === 'active') return '#00FFA3';
-        if (d.status === 'syncing') return '#F59E0B';
-        return 'transparent';
-      })
-      .attr('opacity', d => d.status === 'idle' ? 0 : 0.4);
+        .on('end', dragended));
 
     node.append('circle')
-      .attr('r', d => d.id === 'local-node' ? 14 : 9)
-      .attr('fill', d => {
-        if (d.id === 'local-node') return '#627EEA';
-        if (d.status === 'active') return '#00FFA3';
-        if (d.status === 'syncing') return '#F59E0B';
-        return '#94A3B8';
-      })
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 2)
-      .style('filter', d => d.status === 'active' || d.id === 'local-node' ? 'url(#glow)' : 'none');
+      .attr('r', 8)
+      .attr('fill', d => d.status === 'active' ? '#00FFA3' : d.status === 'syncing' ? '#F59E0B' : '#EF4444')
+      .attr('stroke', '#FFF')
+      .attr('stroke-width', 1.5)
+      .attr('class', 'cursor-pointer transition-all hover:scale-125');
+
+    node.append('text')
+      .text(d => d.label)
+      .attr('x', 12)
+      .attr('y', 4)
+      .attr('fill', '#94A3B8')
+      .attr('font-size', '10px')
+      .attr('font-weight', '500')
+      .attr('class', 'pointer-events-none select-none');
 
     simulation.on('tick', () => {
-      prevNodesRef.current = [...filteredNodes];
       link
         .attr('x1', d => (d.source as Node).x!)
         .attr('y1', d => (d.source as Node).y!)
         .attr('x2', d => (d.target as Node).x!)
         .attr('y2', d => (d.target as Node).y!);
 
-      node
-        .attr('transform', d => `translate(${d.x},${d.y})`);
+      node.attr('transform', d => `translate(${d.x},${d.y})`);
     });
 
     function dragstarted(event: any) {
@@ -369,287 +216,187 @@ export default function NetworkMap() {
     return () => {
       simulation.stop();
     };
-  }, [filteredNodes, filteredLinks]);
+  }, [nodes, links]);
+
+  useEffect(() => {
+    if (selectedNode) {
+      if (pingResult !== null) setPingResult(null);
+      if (isPinging) setIsPinging(false);
+      if (showHistory) setShowHistory(false);
+      if (showMoreDetails) setShowMoreDetails(false);
+    }
+  }, [selectedNode]);
+
+  const handlePing = () => {
+    setIsPinging(true);
+    setPingResult(null);
+    setTimeout(() => {
+      setIsPinging(false);
+      setPingResult(Math.floor(Math.random() * 80) + 10);
+    }, 1500);
+  };
+
+  const handleRunDiagnostic = () => {
+    setIsDiagnosing(true);
+    setDiagnosticStep(1);
+    const steps = [1, 2, 3];
+    steps.forEach((step, i) => {
+      setTimeout(() => {
+        setDiagnosticStep(step);
+        if (step === 3) {
+          setTimeout(() => {
+            setIsDiagnosing(false);
+            setDiagnosticStep(0);
+          }, 1000);
+        }
+      }, (i + 1) * 1500);
+    });
+  };
 
   return (
-    <section className="mb-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-        <div className="flex items-center gap-2">
-          <Globe size={18} className="text-[#627EEA]" />
-          <h2 className="text-lg font-light text-white">Network Topology</h2>
+    <div className="flex flex-col h-full bg-slate-900 overflow-hidden relative border border-white/5 rounded-2xl">
+      <div className="p-4 border-b border-white/5 bg-slate-900/50 backdrop-blur-xl flex items-center justify-between z-10 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-[#627EEA]/10 rounded-xl">
+            <Globe size={18} className="text-[#627EEA]" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-white tracking-tight">GLOBAL PEER TOPOLOGY</h2>
+            <p className="text-[10px] text-slate-500 font-medium">8 NODES DETECTED • 2 SYNCING</p>
+          </div>
         </div>
-        
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative group/search">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within/search:text-[#627EEA] transition-colors" />
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
             <input 
               type="text" 
-              placeholder="Search by IP, Location..." 
+              placeholder="PEER ID / IP..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs text-white focus:outline-none focus:border-[#627EEA]/50 focus:bg-white/10 transition-all w-[240px]"
+              className="bg-white/5 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-[#627EEA]/50 w-48 transition-all"
             />
-            {searchQuery && (
-              <button 
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white"
-              >
-                <X size={12} />
-              </button>
-            )}
           </div>
-
-          <div className="relative">
-            <div className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
-              <Filter size={14} className="text-slate-500" />
-              <select 
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-                className="bg-transparent text-xs text-white focus:outline-none appearance-none pr-4 cursor-pointer"
-              >
-                <option value="all" className="bg-[#05070A]">All Nodes</option>
-                <option value="active" className="bg-[#05070A]">Active</option>
-                <option value="syncing" className="bg-[#05070A]">Syncing</option>
-                <option value="idle" className="bg-[#05070A]">Idle</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4 ml-2">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#627EEA]" />
-              <span className="text-[10px] text-slate-400">Local</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#00FFA3]" />
-              <span className="text-[10px] text-slate-400">Active</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-[#F59E0B]" />
-              <span className="text-[10px] text-slate-400">Syncing</span>
-            </div>
-          </div>
+          <button className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-slate-400">
+            <Filter size={14} />
+          </button>
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 glass p-4 relative h-[420px] overflow-hidden">
-          <svg 
-            ref={svgRef} 
-            className="w-full h-full cursor-grab active:cursor-grabbing"
-          />
-        </div>
 
-        <div className="glass p-6 flex flex-col min-h-[420px]">
-          <h3 className="text-sm font-semibold uppercase tracking-widest mb-6 flex items-center gap-2 text-slate-400">
-            <Users size={16} className="text-[#627EEA]" />
-            Node Connection Inspector
-          </h3>
-          
-          <AnimatePresence mode="wait">
-            {selectedNode ? (
-              <motion.div
-                key={selectedNode.id}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                className="space-y-6 flex-grow"
-              >
-                <div>
-                  <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-1 font-bold">Node Identifier</div>
-                  <div className="text-lg font-mono text-white truncate">{selectedNode.label}</div>
-                  <div className="text-xs text-slate-500 font-mono mt-1">{selectedNode.ip}</div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-y-6 gap-x-4 pt-6 border-t border-white/5">
-                  <InspectorItem 
-                    icon={<Zap size={14} className={selectedNode.latency < 50 ? 'text-[#00FFA3]' : 'text-[#F59E0B]'} />}
-                    label="Latency"
-                    value={`${selectedNode.latency}ms`}
-                  />
-                  <InspectorItem 
-                    icon={<Globe size={14} className="text-brand shadow-sm" />}
-                    label="Region"
-                    value={selectedNode.location}
-                  />
-                  <InspectorItem 
-                    icon={<Activity size={14} className={selectedNode.status === 'active' ? 'text-[#00FFA3]' : 'text-[#F59E0B]'} />}
-                    label="Status"
-                    value={selectedNode.status.toUpperCase()}
-                    valueClassName={selectedNode.status === 'active' ? 'text-[#00FFA3]' : 'text-[#F59E0B]'}
-                  />
-                  <InspectorItem 
-                    icon={<Clock size={14} className="text-slate-400" />}
-                    label="Last Seen"
-                    value={selectedNode.lastSeen}
-                  />
-                  <InspectorItem 
-                    icon={<Shield size={14} className="text-[#627EEA]" />}
-                    label="Uptime"
-                    value={selectedNode.uptime}
-                  />
-                  <InspectorItem 
-                    icon={<Network size={14} className="text-slate-400" />}
-                    label="P2P Protocol"
-                    value="libp2p v1.2"
-                  />
-                </div>
-
-                <div className="pt-6 border-t border-white/5 space-y-6">
+      <div className="flex-grow relative overflow-hidden group">
+        <svg ref={svgRef} className="w-full h-full cursor-grab active:cursor-grabbing" />
+        
+        {/* Node Inspector Overlay */}
+        <AnimatePresence>
+          {selectedNode && (
+            <motion.div 
+              initial={{ x: 400, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: 400, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="absolute top-0 right-0 h-full w-[360px] bg-slate-900 border-l border-white/10 backdrop-blur-xl shadow-2xl p-6 z-20 flex flex-col custom-scrollbar overflow-y-auto"
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div className="flex items-center gap-3">
+                  <div className={`w-3 h-3 rounded-full animate-pulse ${selectedNode.status === 'active' ? 'bg-[#00FFA3]' : selectedNode.status === 'syncing' ? 'bg-[#F59E0B]' : 'bg-[#EF4444]'}`} />
                   <div>
-                    <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-4">Granular Health Check</div>
+                    <h3 className="text-lg font-bold text-white tracking-tight">{selectedNode.label}</h3>
+                    <div className="flex items-center gap-2 text-[10px] text-slate-500">
+                      <span className="font-mono">{selectedNode.ip}</span>
+                      <span>•</span>
+                      <span>{selectedNode.location}</span>
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setSelectedNode(null)}
+                  className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 transition-colors"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-3">
+                  <StatCard label="UPTIME" value={selectedNode.uptime} icon={<Clock size={12} />} />
+                  <StatCard label="LATENCY" value={`${selectedNode.latency}ms`} icon={<Zap size={12} />} color="#627EEA" />
+                </div>
+
+                <div className="pt-6 border-t border-white/5 space-y-6 text-sm">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-4 font-bold">Health Snapshot</div>
                     <div className="space-y-4">
-                      <HealthBar 
-                        label="CPU Usage" 
-                        value={selectedNode.status === 'active' ? 72 : selectedNode.status === 'syncing' ? 94 : 12} 
-                        limit={selectedNode.cpuLimit}
-                        color="#627EEA" 
-                      />
-                      <HealthBar 
-                        label="Memory Usage" 
-                        value={selectedNode.status === 'syncing' ? 88 : 14} 
-                        limit={selectedNode.memoryLimit}
-                        color={selectedNode.status === 'syncing' ? '#F59E0B' : '#00FFA3'} 
-                      />
+                      <HealthBar label="CPU Usage" value={selectedNode.status === 'active' ? 42 : selectedNode.status === 'syncing' ? 94 : 5} limit={selectedNode.cpuLimit} color="#627EEA" />
+                      <HealthBar label="Memory Consumption" value={selectedNode.status === 'syncing' ? 88 : 14} limit={selectedNode.memoryLimit} color={selectedNode.status === 'syncing' ? '#F59E0B' : '#00FFA3'} />
                       
                       <div className="grid grid-cols-2 gap-3">
                         <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                          <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1">Disk I/O</div>
-                          <div className="text-xs font-mono text-white">
+                          <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1 font-bold">Disk Read/Write</div>
+                          <div className="text-[11px] font-mono text-white">
                             {selectedNode.status === 'syncing' ? '142.4 MB/s' : '1.2 MB/s'}
                           </div>
                         </div>
                         <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                          <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1">Packet Loss</div>
-                          <div className="text-xs font-mono text-[#00FFA3]">0.002%</div>
+                          <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1 font-bold">Network Drops</div>
+                          <div className="text-[11px] font-mono text-[#00FFA3]">0.002%</div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <button 
-                    onClick={handleRunDiagnostic}
-                    disabled={isDiagnosing}
-                    className="w-full py-3 bg-[#627EEA] hover:bg-[#5068D0] disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[#627EEA]/20 flex items-center justify-center gap-3"
-                  >
-                    {isDiagnosing ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        {diagnosticStep === 1 ? 'CHECKING STATE...' : diagnosticStep === 2 ? 'VERIFYING P2P...' : 'FINALIZING...'}
-                      </>
-                    ) : (
-                      'RUN NODE DIAGNOSTIC'
-                    )}
-                  </button>
-                </div>
-
-                <div className="pt-6 border-t border-white/5 space-y-4">
-                  <div className="flex gap-3">
+                  <div className="flex gap-2">
                     <button 
-                      onClick={handlePingNode}
+                      onClick={handlePing}
                       disabled={isPinging}
-                      className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                      className="flex-grow py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                     >
-                      {isPinging ? (
-                        <>
-                          <Loader2 size={12} className="animate-spin text-[#627EEA]" />
-                          PINGING...
-                        </>
-                      ) : (
-                        <>
-                          <Signal size={12} className="text-[#627EEA]" />
-                          PING TEST
-                        </>
-                      )}
-                    </button>
-                    <button 
-                      onClick={() => setShowMoreDetails(!showMoreDetails)}
-                      className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all"
-                    >
-                      {showMoreDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      DETAILS
+                      {isPinging ? <Loader2 size={12} className="animate-spin" /> : <Signal size={12} className="text-[#627EEA]" />}
+                      PING TEST
                     </button>
                     <button 
                       onClick={() => setShowHistory(!showHistory)}
-                      className={`px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all ${showHistory ? 'ring-1 ring-[#627EEA]/50 bg-white/10' : ''}`}
+                      className={`flex-grow py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all ${showHistory ? 'ring-1 ring-[#627EEA]/50 bg-white/10' : ''}`}
                     >
-                      <Clock size={14} className={showHistory ? 'text-[#627EEA]' : ''} />
+                      <Clock size={12} className={showHistory ? 'text-[#627EEA]' : ''} />
                       HISTORY
+                    </button>
+                    <button 
+                      onClick={() => setShowMoreDetails(!showMoreDetails)}
+                      className={`flex-grow py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all ${showMoreDetails ? 'ring-1 ring-[#627EEA]/50 bg-white/10' : ''}`}
+                    >
+                      <Info size={12} className={showMoreDetails ? 'text-[#627EEA]' : ''} />
+                      DETAILS
                     </button>
                   </div>
 
                   {pingResult !== null && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`p-3 border rounded-xl flex justify-between items-center ${
-                        pingResult < 50 
-                          ? 'bg-[#00FFA3]/5 border-[#00FFA3]/20' 
-                          : 'bg-[#F59E0B]/5 border-[#F59E0B]/20'
-                      }`}
-                    >
-                      <span className="text-[10px] text-slate-400 font-medium">Last Ping Latency</span>
-                      <span className={`text-xs font-mono font-bold tracking-wider ${
-                        pingResult < 50 ? 'text-[#00FFA3]' : 'text-[#F59E0B]'
-                      }`}>
-                        {pingResult}ms
-                      </span>
+                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className={`p-3 border rounded-xl flex justify-between items-center ${pingResult < 50 ? 'bg-[#00FFA3]/5 border-[#00FFA3]/20' : 'bg-[#F59E0B]/5 border-[#F59E0B]/20'}`}>
+                      <span className="text-[10px] text-slate-400 font-medium">Ping Latency</span>
+                      <span className={`text-xs font-mono font-bold tracking-wider ${pingResult < 50 ? 'text-[#00FFA3]' : 'text-[#F59E0B]'}`}>{pingResult}ms</span>
                     </motion.div>
                   )}
 
                   <AnimatePresence>
                     {showHistory && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden space-y-4 pt-2"
-                      >
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden space-y-4 pt-2">
                         <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
                           <div className="flex items-center justify-between">
-                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] font-bold">Historical Data</div>
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] font-bold">Node History</div>
                             <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
-                              {(['24h', '7d', '30d'] as const).map((range) => (
-                                <button
-                                  key={range}
-                                  onClick={() => setTimeRange(range)}
-                                  className={`px-2 py-1 text-[8px] font-bold rounded-md transition-all ${timeRange === range ? 'bg-[#627EEA] text-white' : 'text-slate-500 hover:text-slate-300'}`}
-                                >
-                                  {range.toUpperCase()}
-                                </button>
+                              {(['24h', '7d', '30d'] as const).map(range => (
+                                <button key={range} onClick={() => setTimeRange(range)} className={`px-2 py-1 text-[8px] font-bold rounded-md transition-all ${timeRange === range ? 'bg-[#627EEA] text-white' : 'text-slate-500 hover:text-slate-300'}`}>{range.toUpperCase()}</button>
                               ))}
                             </div>
                           </div>
-
-                          <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
-                            {selectedNode.history.map((event, idx) => (
-                              <div key={idx} className="flex gap-3 relative">
-                                {idx !== selectedNode.history.length - 1 && (
-                                  <div className="absolute left-1.5 top-4 bottom-0 w-[1px] bg-white/5" />
-                                )}
-                                <div className={`mt-1.5 w-3 h-3 rounded-full flex-shrink-0 z-10 ${event.status === 'active' ? 'bg-[#00FFA3]/20 border border-[#00FFA3]/50' : 'bg-slate-500/20 border border-slate-500/50'}`}>
-                                  <div className={`w-1 h-1 rounded-full m-auto mt-0.5 ${event.status === 'active' ? 'bg-[#00FFA3]' : 'bg-slate-400'}`} />
-                                </div>
-                                <div className="flex-grow space-y-1 pb-3">
-                                  <div className="flex justify-between items-center">
-                                    <span className="text-[9px] font-bold text-white uppercase tracking-tight">STATUS: {event.status.toUpperCase()}</span>
-                                    <span className="text-[8px] font-mono text-slate-500">
-                                      {new Date(event.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                                    </span>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Zap size={8} className="text-[#627EEA]" />
-                                    <span className="text-[9px] font-mono text-slate-400">Latency: {event.latency}ms</span>
-                                  </div>
-                                </div>
+                          <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">{selectedNode.history.map((event, idx) => (
+                            <div key={idx} className="flex gap-3 relative">
+                              {idx !== selectedNode.history.length - 1 && <div className="absolute left-1.5 top-4 bottom-0 w-[1px] bg-white/5" />}
+                              <div className={`mt-1.5 w-3 h-3 rounded-full flex-shrink-0 z-10 ${event.status === 'active' ? 'bg-[#00FFA3]/20 border border-[#00FFA3]/50' : 'bg-slate-500/20 border border-slate-500/50'}`}><div className={`w-1 h-1 rounded-full m-auto mt-0.5 ${event.status === 'active' ? 'bg-[#00FFA3]' : 'bg-slate-400'}`} /></div>
+                              <div className="flex-grow space-y-1 pb-3">
+                                <div className="flex justify-between items-center"><span className="text-[9px] font-bold text-white uppercase tracking-tight">STATUS: {event.status.toUpperCase()}</span><span className="text-[8px] font-mono text-slate-500">{new Date(event.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+                                <div className="flex items-center gap-2"><Zap size={8} className="text-[#627EEA]" /><span className="text-[9px] font-mono text-slate-400">Latency: {event.latency}ms</span></div>
                               </div>
-                            ))}
-                          </div>
-
-                          <div className="pt-2 border-t border-white/5 flex justify-between items-center">
-                            <span className="text-[9px] text-slate-500">Uptime Record</span>
-                            <span className="text-[10px] font-mono text-[#00FFA3]">99.98% Confidence</span>
-                          </div>
+                            </div>
+                          ))}</div>
                         </div>
                       </motion.div>
                     )}
@@ -657,137 +404,70 @@ export default function NetworkMap() {
 
                   <AnimatePresence>
                     {showMoreDetails && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden space-y-4 pt-2"
-                      >
+                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden space-y-4 pt-2">
                         <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/5">
-                          <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-2 font-bold">Software & OS</div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <InspectorItem 
-                              icon={<Activity size={12} className="text-slate-400" />}
-                              label="Version"
-                              value={selectedNode.version}
-                            />
-                            <InspectorItem 
-                              icon={<Shield size={12} className="text-slate-400" />}
-                              label="OS"
-                              value={selectedNode.os}
-                            />
-                          </div>
-
-                          <div className="pt-2 border-t border-white/5 mt-2">
-                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-2 font-bold">Network Config</div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <InspectorItem 
-                                icon={<Network size={12} className="text-slate-400" />}
-                                label="Protocol"
-                                value="libp2p v1.2"
-                              />
-                              <InspectorItem 
-                                icon={<Shield size={12} className="text-slate-400" />}
-                                label="Encryption"
-                                value="AES-256-GCM"
-                              />
+                          <div>
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-3 font-bold flex items-center gap-2"><Cpu size={10} /> Software & Environment</div>
+                            <div className="grid grid-cols-2 gap-3 text-[10px]">
+                              <div className="p-2 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">VERSION</div><div className="font-mono text-white">{selectedNode.version}</div></div>
+                              <div className="p-2 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">OPERATING SYSTEM</div><div className="text-white">{selectedNode.os}</div></div>
                             </div>
                           </div>
 
-                          <div className="pt-2 border-t border-white/5 mt-2">
-                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-2 font-bold">Relational Stats</div>
-                            <div className="grid grid-cols-2 gap-4">
-                              <InspectorItem 
-                                icon={<Activity size={12} className="text-slate-400" />}
-                                label="Stability"
-                                value="99.98%"
-                              />
-                              <InspectorItem 
-                                icon={<Users size={12} className="text-slate-400" />}
-                                label="Streams"
-                                value="20 Total"
-                              />
+                          <div className="pt-2 border-t border-white/5">
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-3 font-bold flex items-center gap-2"><Network size={10} /> P2P Network Config</div>
+                            <div className="space-y-2">
+                              <div className="p-2 bg-black/20 rounded-lg border border-white/5 text-[10px]">
+                                <div className="text-slate-500 mb-1">CORE PEER ID</div>
+                                <div className="font-mono text-white overflow-hidden text-ellipsis whitespace-nowrap">{selectedNode.peerId}</div>
+                              </div>
+                              <div className="p-2 bg-black/20 rounded-lg border border-white/5 text-[10px]">
+                                <div className="text-slate-500 mb-1">PROTOCOLS / LISTEN ADDRESSES</div>
+                                <div className="space-y-1 mt-1 font-mono text-white/80">
+                                  {selectedNode.listenAddrs.map((addr, i) => <div key={i} className="text-[9px] bg-slate-800/50 p-1 rounded px-2">{addr}</div>)}
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3 text-[10px]">
+                                <div className="p-2 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">ENCRYPTION</div><div className="text-white">AES-256-GCM</div></div>
+                                <div className="p-2 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">RELAY MODE</div><div className="text-white">Autonat / Proxy</div></div>
+                              </div>
                             </div>
                           </div>
                         </div>
                       </motion.div>
                     )}
                   </AnimatePresence>
-                </div>
 
-              </motion.div>
-            ) : (
-              <div className="flex-grow flex flex-col items-center justify-center text-center">
-                <div className="p-6 rounded-full bg-white/5 mb-4 border border-white/5">
-                  <Globe size={48} className="text-slate-600 animate-pulse" />
+                  <button onClick={handleRunDiagnostic} disabled={isDiagnosing} className="w-full py-4 bg-[#627EEA] hover:bg-[#5068D0] disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[#627EEA]/20 flex items-center justify-center gap-3">
+                    {isDiagnosing ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        {diagnosticStep === 1 ? 'CHECKING STATE...' : diagnosticStep === 2 ? 'VERIFYING P2P...' : 'FINALIZING...'}
+                      </>
+                    ) : (
+                      <>
+                        <Terminal size={14} />
+                        RUN FULL DIAGNOSTIC
+                      </>
+                    )}
+                  </button>
                 </div>
-                <p className="text-sm text-slate-500 max-w-[200px]">Select a node in the network topology to view detailed link state</p>
               </div>
-            )}
-          </AnimatePresence>
-        </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-
-      <AnimatePresence>
-        {hoveredNode && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.1 }}
-            className="fixed z-[60] pointer-events-none"
-            style={{ 
-              left: tooltipPos.x + 15, 
-              top: tooltipPos.y + 15 
-            }}
-          >
-            <div className="bg-[#0A0D12]/90 backdrop-blur-md border border-white/10 rounded-lg p-3 shadow-2xl min-w-[180px]">
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-1.5 h-1.5 rounded-full ${
-                  hoveredNode.status === 'active' ? 'bg-[#00FFA3]' : 
-                  hoveredNode.status === 'syncing' ? 'bg-[#F59E0B]' : 'bg-slate-400'
-                }`} />
-                <span className="text-xs font-bold text-white truncate">{hoveredNode.label}</span>
-              </div>
-              <div className="space-y-1.5">
-                <div className="flex justify-between items-center gap-4">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-500">IP Address</span>
-                  <span className="text-[10px] font-mono text-slate-300">{hoveredNode.ip}</span>
-                </div>
-                <div className="flex justify-between items-center gap-4">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-500">Location</span>
-                  <span className="text-[10px] text-slate-300">{hoveredNode.location}</span>
-                </div>
-                <div className="flex justify-between items-center gap-4">
-                  <span className="text-[9px] uppercase tracking-wider text-slate-500">Status</span>
-                  <span className={`text-[9px] font-bold uppercase tracking-tight ${
-                    hoveredNode.status === 'active' ? 'text-[#00FFA3]' : 
-                    hoveredNode.status === 'syncing' ? 'text-[#F59E0B]' : 'text-slate-400'
-                  }`}>
-                    {hoveredNode.status}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </section>
+    </div>
   );
 }
 
-function InspectorItem({ icon, label, value, valueClassName = "text-white" }: { 
-  icon: React.ReactNode, 
-  label: string, 
-  value: string,
-  valueClassName?: string 
-}) {
+function StatCard({ label, value, icon, color = '#94A3B8' }: { label: string, value: string, icon: React.ReactNode, color?: string }) {
   return (
-    <div className="space-y-1">
-      <div className="text-[10px] uppercase tracking-widest text-slate-500">{label}</div>
-      <div className="flex items-center gap-2">
-        {icon}
-        <span className={`text-sm font-medium ${valueClassName}`}>{value}</span>
+    <div className="p-3 bg-white/5 rounded-xl border border-white/5 flex items-center gap-3">
+      <div className="p-2 bg-slate-800 rounded-lg text-slate-400">{icon}</div>
+      <div>
+        <div className="text-[8px] text-slate-500 uppercase tracking-tighter font-bold">{label}</div>
+        <div className="text-xs font-mono font-bold text-white tracking-widest" style={{ color }}>{value}</div>
       </div>
     </div>
   );
@@ -795,30 +475,14 @@ function InspectorItem({ icon, label, value, valueClassName = "text-white" }: {
 
 function HealthBar({ label, value, limit, color }: { label: string, value: number, limit?: number, color: string }) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between items-center text-[8px] uppercase tracking-wider text-slate-500 font-bold">
-        <div className="flex items-center gap-2">
-          <span>{label}</span>
-          {limit && (
-            <span className="text-[7px] text-slate-600 font-normal">LIMIT: {limit}%</span>
-          )}
-        </div>
+    <div className="space-y-2">
+      <div className="flex justify-between items-center text-[9px] uppercase tracking-wider text-slate-500 font-bold">
+        <div className="flex items-center gap-2"><span>{label}</span>{limit && <span className="text-[7px] text-slate-600 font-normal">LIMIT: {limit}%</span>}</div>
         <span className="font-mono" style={{ color }}>{value}%</span>
       </div>
-      <div className="h-1 bg-white/5 rounded-full overflow-hidden relative">
-        <motion.div 
-          initial={{ width: 0 }}
-          animate={{ width: `${value}%` }}
-          className="h-full relative z-10"
-          style={{ backgroundColor: color }}
-        />
-        {limit && (
-          <div 
-            className="absolute top-0 bottom-0 w-0.5 bg-white/20 z-20"
-            style={{ left: `${limit}%` }}
-            title={`Threshold: ${limit}%`}
-          />
-        )}
+      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden relative">
+        <motion.div initial={{ width: 0 }} animate={{ width: `${value}%` }} className="h-full relative z-10" style={{ backgroundColor: color }} />
+        {limit && <div className="absolute top-0 bottom-0 w-0.5 bg-white/20 z-20" style={{ left: `${limit}%` }} title={`Threshold: ${limit}%`} />}
       </div>
     </div>
   );

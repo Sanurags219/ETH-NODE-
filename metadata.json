@@ -1,13 +1,5 @@
 {
-  "name": "EtherNode Explorer",
-  "description": "A real-time visualizer for blocks and nodes on the Base and Ethereum networks, built for the Farcaster ecosystem.",
-  "requestFramePermissions": [
-    "camera",
-    "microphone",
-    "geolocation"
-  ],
-  "majorCapabilities": [
-    "blockchain_interaction",
-    "real_time_data"
-  ]
+  "name": "Aether Node Dashboard",
+  "description": "A high-fidelity dashboard for monitoring and managing Aether network nodes.",
+  "requestFramePermissions": []
 }

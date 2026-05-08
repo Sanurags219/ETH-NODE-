@@ -1,68 +1,15 @@
-@import "tailwindcss";
-
-@theme {
-  --color-brand: #627EEA;
-  --color-success: #00FFA3;
-  --color-warning: #F59E0B;
-  --color-error: #EF4444;
-}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 5, 7, 10;
-  --background-end-rgb: 0, 0, 0;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-  min-height: 100vh;
-}
-
-@utility glass {
-  background-color: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 1rem;
-}
-
-@utility neon-glow {
-  box-shadow: 0 0 20px rgba(98, 126, 234, 0.3);
-  border-color: rgba(98, 126, 234, 0.5);
-}
-
-@utility stat-card {
-  @apply glass p-5 transition-all duration-300 hover:bg-white/10;
-}
-
-@keyframes nodeRipple {
-  0% { transform: scale(1); opacity: 0.8; }
-  100% { transform: scale(1.8); opacity: 0; }
-}
-
-@keyframes nodeSync {
-  0% { transform: scale(1); opacity: 0.3; }
-  50% { transform: scale(1.3); opacity: 0.6; }
-  100% { transform: scale(1); opacity: 0.3; }
-}
-
-.node-ripple {
-  animation: nodeRipple 2s cubic-bezier(0, 0, 0.2, 1) infinite;
-  transform-origin: center;
-}
-
-.node-sync {
-  animation: nodeSync 2s ease-in-out infinite;
-  transform-origin: center;
-}
-
-.status-pulse {
-  @apply w-2 h-2 rounded-full relative;
+  background: var(--background);
+  color: var(--foreground);
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -70,14 +17,13 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
+  @apply bg-transparent;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
+  @apply bg-white/10 rounded-full;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  @apply bg-white/20;
 }

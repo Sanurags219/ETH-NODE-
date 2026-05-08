@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
-import { Providers } from "@/components/Providers";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "Aether Node Dashboard",
-  description: "Real-time P2P network visualization and health monitoring",
+  description: "Monitor and manage your Aether network nodes.",
 };
 
 export default function RootLayout({
@@ -16,9 +15,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className={inter.className}>
-        <Providers>{children}</Providers>
+    <html lang="en" className="dark">
+      <body className={`${inter.variable} font-sans antialiased bg-slate-950 text-slate-50`}>
+        {children}
       </body>
     </html>
   );
