@@ -146,6 +146,18 @@ export default function NetworkMap() {
     feMerge.append('feMergeNode').attr('in', 'coloredBlur');
     feMerge.append('feMergeNode').attr('in', 'SourceGraphic');
 
+    // Add ripple effect for active nodes
+    node.append('circle')
+      .attr('r', d => d.id === 'local-node' ? 14 : 9)
+      .attr('class', d => d.status === 'active' || d.id === 'local-node' ? 'node-ripple' : d.status === 'syncing' ? 'node-sync' : '')
+      .attr('fill', d => {
+        if (d.id === 'local-node') return '#627EEA';
+        if (d.status === 'active') return '#00FFA3';
+        if (d.status === 'syncing') return '#F59E0B';
+        return 'transparent';
+      })
+      .attr('opacity', d => d.status === 'idle' ? 0 : 0.4);
+
     node.append('circle')
       .attr('r', d => d.id === 'local-node' ? 14 : 9)
       .attr('fill', d => {
