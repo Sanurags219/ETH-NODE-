@@ -101,12 +101,29 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
       .attr('stroke-opacity', 0)
       .attr('class', 'pulse-glow');
 
+    // Main node circle
     node.append('circle')
-      .attr('r', 8)
-      .attr('fill', d => d.status === 'active' ? '#00FFA3' : d.status === 'syncing' ? '#F59E0B' : '#EF4444')
-      .attr('stroke', '#FFF')
-      .attr('stroke-width', 1.5)
-      .attr('class', 'cursor-pointer transition-all hover:scale-125');
+      .attr('r', 9)
+      .attr('fill', '#1E293B')
+      .attr('stroke', d => d.status === 'active' ? '#00FFA3' : d.status === 'syncing' ? '#F59E0B' : '#94A3B8')
+      .attr('stroke-width', 2)
+      .attr('class', 'cursor-pointer transition-all hover:scale-110');
+
+    // Status Badge (Orbit Dot)
+    node.append('circle')
+      .attr('r', 4)
+      .attr('cx', 8)
+      .attr('cy', -8)
+      .attr('fill', '#0F172A')
+      .attr('stroke', 'rgba(255,255,255,0.2)')
+      .attr('stroke-width', 0.5);
+
+    node.append('circle')
+      .attr('r', 2.5)
+      .attr('cx', 8)
+      .attr('cy', -8)
+      .attr('fill', d => d.status === 'active' ? '#00FFA3' : d.status === 'syncing' ? '#F59E0B' : '#94A3B8')
+      .attr('class', d => d.status === 'syncing' ? 'animate-pulse' : '');
 
     node.append('text')
       .text(d => d.label)
@@ -261,7 +278,7 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
             >
               <div className="flex justify-between items-start mb-6">
                 <div className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full animate-pulse ${selectedNode.status === 'active' ? 'bg-[#00FFA3]' : selectedNode.status === 'syncing' ? 'bg-[#F59E0B]' : 'bg-[#EF4444]'}`} />
+                  <div className={`w-3 h-3 rounded-full animate-pulse ${selectedNode.status === 'active' ? 'bg-[#00FFA3]' : selectedNode.status === 'syncing' ? 'bg-[#F59E0B]' : 'bg-[#94A3B8]'}`} />
                   <div>
                     <h3 className="text-lg font-bold text-white tracking-tight">{selectedNode.label}</h3>
                     <div className="flex items-center gap-2 text-[10px] text-slate-500">
