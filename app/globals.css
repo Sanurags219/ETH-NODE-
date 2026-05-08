@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand: #627EEA;
+  --color-success: #00FFA3;
+  --color-warning: #F59E0B;
+  --color-error: #EF4444;
+}
+
 :root {
   --foreground-rgb: 255, 255, 255;
   --background-start-rgb: 5, 7, 10;
@@ -17,18 +24,20 @@ body {
   min-height: 100vh;
 }
 
-@layer components {
-  .glass {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl;
-  }
+@utility glass {
+  background-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+}
 
-  .neon-glow {
-    @apply shadow-[0_0_20px_rgba(98,126,234,0.3)] border-brand/50;
-  }
+@utility neon-glow {
+  box-shadow: 0 0 20px rgba(98, 126, 234, 0.3);
+  border-color: rgba(98, 126, 234, 0.5);
+}
 
-  .stat-card {
-    @apply glass p-5 transition-all duration-300 hover:bg-white/10;
-  }
+@utility stat-card {
+  @apply glass p-5 transition-all duration-300 hover:bg-white/10;
 }
 
 .status-pulse {

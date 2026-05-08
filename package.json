@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "latest",
+    "@tailwindcss/postcss": "^4.2.4",
+    "@tanstack/react-query": "latest",
     "d3": "^7.8.5",
     "lucide-react": "latest",
     "motion": "latest",
@@ -17,9 +19,8 @@
     "react": "18.2.0",
     "react-dom": "18.2.0",
     "recharts": "latest",
-    "wagmi": "latest",
     "viem": "latest",
-    "@tanstack/react-query": "latest"
+    "wagmi": "latest"
   },
   "devDependencies": {
     "@types/d3": "^7.4.3",

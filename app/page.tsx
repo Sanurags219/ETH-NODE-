@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { motion, AnimatePresence } from 'motion/react';
-import { useBlockNumber, useAccount, useChainId } from 'wagmi';
+import { useBlockNumber, useChainId } from 'wagmi';
 import { 
   Activity, 
   Cpu, 
@@ -136,12 +136,8 @@ export default function NodeDashboard() {
       });
     }, 4000);
 
-    // Periodic health check every 30 seconds
-    const healthInterval = setInterval(runHealthCheck, 30000);
-
     return () => {
       clearInterval(interval);
-      clearInterval(healthInterval);
     };
   }, []);
 
@@ -190,7 +186,7 @@ export default function NodeDashboard() {
     setIsChecking(false);
   };
 
-  // Update status and network mock data
+  // Update status based on block monitoring
   useEffect(() => {
     if (blockStatus === 'pending') {
       setStatus('syncing');
@@ -207,18 +203,18 @@ export default function NodeDashboard() {
     }
   }, [blockStatus, blockNumber]);
 
-  const networkName = chainId === 8453 ? "Base" : chainId === 1 ? "Ethereum" : "Unknown Network";
+  const networkName = chainId === 8453 ? "Base" : chainId === 1 ? "Ethereum" : "Mainnet";
   const currentCPU = metrics.length > 0 ? metrics[metrics.length - 1].cpu : 0;
   const currentRAM = metrics.length > 0 ? metrics[metrics.length - 1].ram : 0;
 
   if (!isReady) return null;
 
   return (
-    <div className="flex h-screen w-full bg-[#05070A] overflow-hidden" style={{ background: 'radial-gradient(circle at 70% 20%, #1A1C2E 0%, #05070A 100%)' }}>
+    <div className="flex h-screen w-full bg-[#05070A] overflow-hidden">
       {/* Sidebar */}
       <aside className="w-64 border-r border-white/10 p-6 flex flex-col shrink-0">
-        <div className="flex items-center gap-3 mb-12">
-          <div className="w-8 h-8 bg-[#627EEA] rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-brand/40">
+        <div className="flex items-center gap-3 mb-10">
+          <div className="w-8 h-8 bg-[#627EEA] rounded-lg flex items-center justify-center font-bold text-white shadow-lg shadow-[#627EEA]/40">
             Ξ
           </div>
           <div className="font-bold text-lg tracking-tight">
@@ -230,128 +226,85 @@ export default function NodeDashboard() {
           <SidebarItem icon={<BarChart3 size={18} />} label="Dashboard" active />
           <SidebarItem icon={<Globe size={18} />} label="Peers List" />
           <SidebarItem icon={<Shield size={18} />} label="Staking" />
-          <SidebarItem icon={<Activity size={18} />} label="Execution Client" />
-          <SidebarItem icon={<Layers size={18} />} label="Consensus" />
+          <SidebarItem icon={<Layers size={18} />} label="Execution" />
+          <SidebarItem icon={<Activity size={18} />} label="Metrics" />
           <SidebarItem icon={<Settings size={18} />} label="Settings" />
         </nav>
 
-        <div className="glass p-4 mt-auto relative overflow-hidden group">
-          <div className="text-[10px] uppercase tracking-widest text-[#94A3B8] mb-1">Version</div>
-          <div className="text-xs font-mono">Geth v1.13.5-stable</div>
-          <div className="flex items-center justify-between mt-3">
-            <div className="flex items-center gap-2">
-              <StatusIndicator status={status} />
-              <span className={`text-xs font-medium ${
-                status === 'connected' ? 'text-[#00FFA3]' : 
-                status === 'syncing' ? 'text-[#F59E0B]' : 
-                'text-[#EF4444]'
-              }`}>
-                {status === 'connected' ? 'Online' : 
-                 status === 'syncing' ? 'Syncing' : 
-                 'Offline'}
-              </span>
-            </div>
-            <button 
-              onClick={() => setShowDetails(!showDetails)}
-              className="p-1 hover:bg-white/10 rounded-md transition-colors text-[#94A3B8] hover:text-white"
-            >
-              <Info size={14} />
-            </button>
+        <div className="glass p-4 mt-auto">
+          <div className="flex items-center gap-2 mb-2">
+            <StatusIndicator status={status} />
+            <span className={`text-xs font-medium ${
+              status === 'connected' ? 'text-[#00FFA3]' : 
+              status === 'syncing' ? 'text-[#F59E0B]' : 
+              'text-[#EF4444]'
+            }`}>
+              {status === 'connected' ? 'Online' : status === 'syncing' ? 'Syncing' : 'Offline'}
+            </span>
           </div>
-
-          <AnimatePresence>
-            {showDetails && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="mt-3 pt-3 border-t border-white/10 space-y-2 overflow-hidden"
-              >
-                <DetailRow label="Network" value={networkName} />
-                <DetailRow label="Sync Speed" value={syncSpeed} />
-                <DetailRow label="ETC" value={etc} />
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <div className="text-[10px] text-slate-500 font-mono flex justify-between">
+            <span>Uptime</span>
+            <span>{uptime}</span>
+          </div>
         </div>
       </aside>
 
       {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto custom-scrollbar">
         <header className="flex justify-between items-end mb-8">
-          <div className="space-y-1">
-            <h1 className="text-3xl font-light text-white">Node Overview</h1>
-            <p className="text-sm text-[#94A3B8]">
-              Local instance: <span className="text-white font-mono">eth-node-v1-primary</span>
+          <div>
+            <h1 className="text-3xl font-light text-white">Dashboard</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Network: <span className="text-white">{networkName}</span> • Instance: <span className="text-white font-mono">eth-primary-01</span>
             </p>
           </div>
           <div className="flex items-center gap-4">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full glass border ${
-              healthStatus === 'healthy' ? 'border-success/30 bg-success/5' : 
-              healthStatus === 'warning' ? 'border-warning/30 bg-warning/5' : 
-              'border-error/30 bg-error/5'
+            <div className={`px-4 py-1.5 rounded-full glass border flex items-center gap-2 ${
+              healthStatus === 'healthy' ? 'border-[#00FFA3]/20 bg-[#00FFA3]/5' : 
+              healthStatus === 'warning' ? 'border-[#F59E0B]/20 bg-[#F59E0B]/5' : 
+              'border-[#EF4444]/20 bg-[#EF4444]/5'
             }`}>
               <HeartPulse size={14} className={
-                healthStatus === 'healthy' ? 'text-success' : 
-                healthStatus === 'warning' ? 'text-warning' : 
-                'text-error'
+                healthStatus === 'healthy' ? 'text-[#00FFA3]' : 
+                healthStatus === 'warning' ? 'text-[#F59E0B]' : 
+                'text-[#EF4444]'
               } />
-              <span className="text-xs font-medium uppercase tracking-wider">
+              <span className="text-[10px] font-bold uppercase tracking-wider">
                 {healthStatus === 'checking' ? 'System Checking...' : `System ${healthStatus}`}
               </span>
             </div>
             <button 
               onClick={runHealthCheck}
               disabled={isChecking}
-              className="p-2 glass hover:bg-white/10 rounded-lg transition-all disabled:opacity-50"
+              className="p-2 glass hover:bg-white/10 rounded-lg transition-all"
             >
-              <RefreshCw size={18} className={isChecking ? "animate-spin text-brand" : "text-white"} />
+              <RefreshCw size={18} className={isChecking ? "animate-spin text-[#627EEA]" : "text-white"} />
             </button>
           </div>
         </header>
 
-        {/* Global Stats */}
+        {/* Stats Grid */}
         <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-          <StatCard 
-            label="Sync Progress" 
-            value={status === 'syncing' ? "88.4%" : "100%"} 
-            highlight={status === 'syncing'} 
-            progress={status === 'syncing' ? 88.4 : 100} 
-            icon={<TrendingUp size={14} className={status === 'syncing' ? 'text-warning' : 'text-success'} />}
-          />
-          <StatCard 
-            label="Active Peers" 
-            value={status === 'disconnected' ? "0" : "64"} 
-            subValue="/ 100" 
-            icon={<Network size={14} className="text-[#627EEA]" />}
-          />
-          <StatCard 
-            label="Current Block" 
-            value={blockNumber ? `#${blockNumber.toLocaleString()}` : "Loading..."} 
-            valueClassName="text-xl"
-            icon={<Layers size={14} className="text-[#627EEA]" />}
-          />
-          <StatCard 
-            label="Integrity Health" 
-            value={healthStatus.charAt(0).toUpperCase() + healthStatus.slice(1)} 
-            valueClassName="text-xl"
-            icon={<HeartPulse size={14} className={healthStatus === 'healthy' ? 'text-success' : 'text-warning'} />}
-          />
+          <StatCard label="Block Height" value={blockNumber ? `#${blockNumber.toLocaleString()}` : "Loading..."} icon={<Layers size={14} className="text-[#627EEA]" />} />
+          <StatCard label="Active Peers" value={status === 'disconnected' ? "0" : "64"} icon={<Network size={14} className="text-[#627EEA]" />} />
+          <StatCard label="Sync Progress" value={status === 'syncing' ? "88.4%" : "100%"} progress={status === 'syncing' ? 88.4 : 100} icon={<Activity size={14} className="text-[#627EEA]" />} />
+          <StatCard label="Peer Latency" value="38ms" icon={<Zap size={14} className="text-[#00FFA3]" />} />
         </section>
 
+        {/* Network Map Integration */}
         <NetworkMap />
 
-        {/* Charts Section */}
+        {/* Resource Monitoring */}
         <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           <div className="glass p-6">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
-                <Cpu size={16} className="text-brand" />
-                <h3 className="text-sm font-semibold uppercase tracking-widest">CPU Load</h3>
+                <Cpu size={16} className="text-[#627EEA]" />
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-400">Total CPU Load</h3>
               </div>
-              <div className="text-xl font-mono text-brand font-bold">{currentCPU}%</div>
+              <div className="text-xl font-mono text-[#627EEA] font-bold">{currentCPU}%</div>
             </div>
-            <div className="h-[180px] w-full">
+            <div className="h-[160px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={metrics}>
                   <defs>
@@ -360,15 +313,7 @@ export default function NodeDashboard() {
                       <stop offset="95%" stopColor="#627EEA" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                  <Area 
-                    type="monotone" 
-                    dataKey="cpu" 
-                    stroke="#627EEA" 
-                    fillOpacity={1} 
-                    fill="url(#colorCpu)" 
-                    isAnimationActive={false}
-                  />
+                  <Area type="monotone" dataKey="cpu" stroke="#627EEA" fillOpacity={1} fill="url(#colorCpu)" isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -377,12 +322,12 @@ export default function NodeDashboard() {
           <div className="glass p-6">
             <div className="flex justify-between items-center mb-6">
               <div className="flex items-center gap-2">
-                <Database size={16} className="text-success" />
-                <h3 className="text-sm font-semibold uppercase tracking-widest">Mem Committed</h3>
+                <Database size={16} className="text-[#00FFA3]" />
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-400">Memory usage</h3>
               </div>
-              <div className="text-xl font-mono text-success font-bold">{currentRAM} GB</div>
+              <div className="text-xl font-mono text-[#00FFA3] font-bold">{currentRAM} GB</div>
             </div>
-            <div className="h-[180px] w-full">
+            <div className="h-[160px]">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={metrics}>
                   <defs>
@@ -391,122 +336,60 @@ export default function NodeDashboard() {
                       <stop offset="95%" stopColor="#00FFA3" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                  <Area 
-                    type="monotone" 
-                    dataKey="ram" 
-                    stroke="#00FFA3" 
-                    fillOpacity={1} 
-                    fill="url(#colorRam)" 
-                    isAnimationActive={false}
-                  />
+                  <Area type="monotone" dataKey="ram" stroke="#00FFA3" fillOpacity={1} fill="url(#colorRam)" isAnimationActive={false} />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
         </section>
 
-        {/* Health Check Details & Logs */}
-        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Health Checks */}
-          <div className="glass p-6 flex flex-col h-full">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-2">
-                <Shield size={16} className="text-brand" />
-                <h3 className="text-sm font-semibold uppercase tracking-widest">Integrity Report</h3>
-              </div>
-              <span className="text-[10px] text-slate-500 font-mono">Last: {lastCheck}</span>
+        {/* System & Logs */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="glass p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Shield size={16} className="text-[#627EEA]" />
+              <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-400">Security Report</h3>
             </div>
-            
-            <div className="space-y-3 flex-grow">
+            <div className="space-y-3">
               {healthChecks.map((check) => (
-                <div key={check.id} className="p-3 bg-black/30 rounded-xl border border-white/5 flex items-start gap-3">
-                  <div className="mt-1">
-                    {check.status === 'passed' ? <CheckCircle2 size={16} className="text-success" /> : 
-                     check.status === 'warning' ? <AlertTriangle size={16} className="text-warning" /> : 
-                     <XCircle size={16} className="text-error" />}
+                <div key={check.id} className="flex items-start gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
+                  <div className="mt-0.5">
+                    {check.status === 'passed' ? <CheckCircle2 size={16} className="text-[#00FFA3]" /> : 
+                     check.status === 'warning' ? <AlertTriangle size={16} className="text-[#F59E0B]" /> : 
+                     <XCircle size={16} className="text-[#EF4444]" />}
                   </div>
-                  <div className="flex-grow">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-white">{check.name}</span>
-                      <span className="text-[10px] text-slate-500 font-mono italic">{check.status.toUpperCase()}</span>
-                    </div>
-                    <p className="text-[11px] text-[#94A3B8] mt-0.5">{check.message}</p>
+                  <div>
+                    <div className="text-xs font-bold text-white">{check.name}</div>
+                    <div className="text-[10px] text-slate-500">{check.message}</div>
                   </div>
+                  <div className="ml-auto text-[9px] font-mono text-slate-600">{check.timestamp}</div>
                 </div>
               ))}
             </div>
-            <button 
-              onClick={runHealthCheck}
-              className={`mt-4 w-full py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                isChecking ? 'bg-brand/10 text-brand' : 'bg-brand text-white hover:bg-brand/90'
-              }`}
-            >
-              {isChecking ? <RefreshCw size={14} className="animate-spin" /> : <Search size={14} />}
-              {isChecking ? 'Verifying Integrity...' : 'Run Integrity Scan'}
-            </button>
           </div>
 
-          {/* System Info */}
-          <div className="glass p-6 flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-6">
-              <HardDrive size={16} className="text-brand" />
-              <h3 className="text-sm font-semibold uppercase tracking-widest">Node Resources</h3>
+          <div className="glass p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <TerminalIcon size={16} className="text-[#627EEA]" />
+                <h3 className="text-sm font-semibold uppercase tracking-widest text-slate-400">Live system logs</h3>
+              </div>
+              <button className="text-[10px] text-[#627EEA] hover:underline">View All</button>
             </div>
-            <div className="space-y-6">
-              <div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-[10px] uppercase tracking-widest text-slate-500">SSD Storage (NVMe)</span>
-                  <span className="text-xs font-mono text-white">42%</span>
-                </div>
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+            <div className="space-y-1.5 h-[160px] overflow-hidden">
+              <AnimatePresence initial={false}>
+                {logs.map((log, i) => (
                   <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: '42%' }}
-                    className="h-full bg-brand" 
-                  />
-                </div>
-                <div className="flex justify-between mt-1 text-[10px] text-slate-500 italic">
-                  <span>842GB Used</span>
-                  <span>1.15TB Available</span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <HealthItem label="Entropy" value="4,096 bits" status="good" />
-                <HealthItem label="I/O Wait" value="0.04ms" status="good" />
-                <HealthItem label="Net In (24h)" value="124.5 GB" status="good" />
-                <HealthItem label="Net Out (24h)" value="42.1 GB" status="good" />
-              </div>
-            </div>
-          </div>
-
-          {/* Logs */}
-          <div className="glass p-6 flex flex-col h-full">
-            <div className="flex items-center gap-2 mb-4">
-              <TerminalIcon size={16} className="text-brand" />
-              <h3 className="text-sm font-semibold uppercase tracking-widest">Live Logs</h3>
-            </div>
-            <div className="flex-grow overflow-hidden relative">
-              <div className="space-y-1 custom-scrollbar overflow-y-auto max-h-[180px]">
-                <AnimatePresence initial={false}>
-                  {logs.map((log, i) => (
-                    <motion.div 
-                      key={`${log}-${i}`}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="text-[10px] font-mono py-1 border-b border-white/5 flex items-center gap-2"
-                    >
-                      <span className="text-brand opacity-60">[{new Date().toLocaleTimeString('en-GB')}]</span>
-                      <span className="text-white/80 line-clamp-1">{log}</span>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </div>
-            </div>
-            <div className="mt-4 pt-4 border-t border-white/10 text-[10px] text-brand hover:text-brand/80 cursor-pointer transition-colors flex items-center justify-between font-bold">
-              <span>EXPLORE TERMINAL</span>
-              <ArrowUpRight size={12} />
+                    key={`${log}-${i}`}
+                    initial={{ opacity: 0, x: -5 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    className="text-[10px] font-mono p-1 border-b border-white/5 flex gap-3"
+                  >
+                    <span className="text-[#627EEA] shrink-0 opacity-60">[{new Date().toLocaleTimeString()}]</span>
+                    <span className="text-slate-300 truncate">{log}</span>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
             </div>
           </div>
         </section>
@@ -515,80 +398,38 @@ export default function NodeDashboard() {
   );
 }
 
-function StatusIndicator({ status }: { status: ConnectionStatus }) {
-  const color = status === 'connected' ? 'text-[#00FFA3]' : status === 'syncing' ? 'text-[#F59E0B]' : 'text-[#EF4444]';
-  
-  return (
-    <div className="relative flex items-center justify-center">
-      <div className={`status-pulse ${color} bg-current`} />
-      {(status === 'syncing' || status === 'connected') && (
-        <motion.div 
-          animate={{ scale: [1, 1.8, 1], opacity: [0.4, 0, 0.4] }}
-          transition={{ duration: status === 'syncing' ? 1.5 : 3, repeat: Infinity }}
-          className={`absolute inset-0 rounded-full ${color} bg-current opacity-40`}
-        />
-      )}
-    </div>
-  );
-}
-
 function SidebarItem({ icon, label, active = false }: { icon: React.ReactNode, label: string, active?: boolean }) {
   return (
-    <div className={`
-      flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer transition-all duration-200 group
-      ${active ? 'bg-brand/20 text-brand border-l-2 border-brand' : 'text-slate-400 hover:bg-white/5 hover:text-white'}
-    `}>
-      <span className={active ? 'text-brand' : 'text-slate-500 group-hover:text-brand'}>{icon}</span>
+    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all ${
+      active ? 'bg-[#627EEA]/10 text-[#627EEA] border border-[#627EEA]/20' : 'text-slate-500 hover:text-white hover:bg-white/5'
+    }`}>
+      {icon}
       <span className="text-sm font-medium">{label}</span>
     </div>
   );
 }
 
-function DetailRow({ label, value }: { label: string, value: string }) {
+function StatusIndicator({ status }: { status: ConnectionStatus }) {
+  const color = status === 'connected' ? 'bg-[#00FFA3]' : status === 'syncing' ? 'bg-[#F59E0B]' : 'bg-[#EF4444]';
   return (
-    <div className="flex justify-between items-center text-[11px]">
-      <span className="text-[#94A3B8]">{label}</span>
-      <span className="font-mono text-white">{value}</span>
-    </div>
+    <div className={`w-2 h-2 rounded-full ${color} ${status !== 'disconnected' ? 'animate-pulse' : ''}`} />
   );
 }
 
-function HealthItem({ label, value, status }: { label: string, value: string, status: 'good' | 'warning' | 'critical' }) {
-  const statusColor = status === 'good' ? 'text-success' : status === 'warning' ? 'text-warning' : 'text-error';
+function StatCard({ label, value, icon, progress }: { label: string, value: string, icon: React.ReactNode, progress?: number }) {
   return (
-    <div>
-      <div className="text-[9px] uppercase tracking-widest text-[#94A3B8] mb-1">{label}</div>
-      <div className={`text-xs font-bold leading-none ${statusColor}`}>{value}</div>
-    </div>
-  );
-}
-
-function StatCard({ label, value, subValue, highlight = false, progress, valueClassName = "text-2xl", icon }: { 
-  label: string, 
-  value: string, 
-  subValue?: string, 
-  highlight?: boolean,
-  progress?: number,
-  valueClassName?: string,
-  icon?: React.ReactNode
-}) {
-  return (
-    <div className={`glass p-5 transition-transform hover:-translate-y-1 ${highlight ? 'neon-glow' : ''}`}>
-      <div className="flex justify-between items-start mb-1">
-        <div className="text-[10px] uppercase tracking-widest text-[#94A3B8]">{label}</div>
-        {icon && <div className="opacity-60">{icon}</div>}
+    <div className="glass p-5">
+      <div className="flex justify-between items-start mb-2">
+        <span className="text-[10px] uppercase tracking-widest text-slate-500">{label}</span>
+        {icon}
       </div>
-      <div className="flex items-baseline gap-1">
-        <span className={`${valueClassName} font-semibold text-white`}>{value}</span>
-        {subValue && <span className="text-sm text-[#94A3B8] font-normal">{subValue}</span>}
-      </div>
+      <div className="text-xl font-bold text-white mb-2">{value}</div>
       {progress !== undefined && (
-        <div className="h-1 bg-white/10 rounded-full mt-3 overflow-hidden">
+        <div className="h-1 bg-white/5 rounded-full overflow-hidden">
           <motion.div 
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
-            transition={{ duration: 1.5, ease: "easeOut" }}
-            className={`h-full ${progress === 100 ? 'bg-success' : 'bg-gradient-to-r from-brand to-warning'}`}
+            className={`h-full ${progress === 100 ? 'bg-[#00FFA3]' : 'bg-[#F59E0B]'}`}
           />
         </div>
       )}
