@@ -453,35 +453,52 @@ export default function NetworkMap() {
                   />
                 </div>
 
-                <div className="pt-6 border-t border-white/5">
-                  <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-4">Internal Health Scan</div>
-                  <div className="space-y-4">
-                    <HealthBar 
-                      label="Thread Concurrency" 
-                      value={selectedNode.status === 'active' ? 72 : selectedNode.status === 'syncing' ? 94 : 12} 
-                      limit={selectedNode.cpuLimit}
-                      color="#627EEA" 
-                    />
-                    <HealthBar 
-                      label="Buffer Saturation" 
-                      value={selectedNode.status === 'syncing' ? 88 : 14} 
-                      limit={selectedNode.memoryLimit}
-                      color={selectedNode.status === 'syncing' ? '#F59E0B' : '#00FFA3'} 
-                    />
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                        <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1">Disk I/O</div>
-                        <div className="text-xs font-mono text-white">
-                          {selectedNode.status === 'syncing' ? '142.4 MB/s' : '1.2 MB/s'}
+                <div className="pt-6 border-t border-white/5 space-y-6">
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-4">Granular Health Check</div>
+                    <div className="space-y-4">
+                      <HealthBar 
+                        label="CPU Usage" 
+                        value={selectedNode.status === 'active' ? 72 : selectedNode.status === 'syncing' ? 94 : 12} 
+                        limit={selectedNode.cpuLimit}
+                        color="#627EEA" 
+                      />
+                      <HealthBar 
+                        label="Memory Usage" 
+                        value={selectedNode.status === 'syncing' ? 88 : 14} 
+                        limit={selectedNode.memoryLimit}
+                        color={selectedNode.status === 'syncing' ? '#F59E0B' : '#00FFA3'} 
+                      />
+                      
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                          <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1">Disk I/O</div>
+                          <div className="text-xs font-mono text-white">
+                            {selectedNode.status === 'syncing' ? '142.4 MB/s' : '1.2 MB/s'}
+                          </div>
                         </div>
-                      </div>
-                      <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                        <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1">Packet Loss</div>
-                        <div className="text-xs font-mono text-[#00FFA3]">0.002%</div>
+                        <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                          <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1">Packet Loss</div>
+                          <div className="text-xs font-mono text-[#00FFA3]">0.002%</div>
+                        </div>
                       </div>
                     </div>
                   </div>
+
+                  <button 
+                    onClick={handleRunDiagnostic}
+                    disabled={isDiagnosing}
+                    className="w-full py-3 bg-[#627EEA] hover:bg-[#5068D0] disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[#627EEA]/20 flex items-center justify-center gap-3"
+                  >
+                    {isDiagnosing ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        {diagnosticStep === 1 ? 'CHECKING STATE...' : diagnosticStep === 2 ? 'VERIFYING P2P...' : 'FINALIZING...'}
+                      </>
+                    ) : (
+                      'RUN NODE DIAGNOSTIC'
+                    )}
+                  </button>
                 </div>
 
                 <div className="pt-6 border-t border-white/5 space-y-4">
@@ -499,7 +516,7 @@ export default function NetworkMap() {
                       ) : (
                         <>
                           <Signal size={12} className="text-[#627EEA]" />
-                          RUN PING TEST
+                          PING TEST
                         </>
                       )}
                     </button>
@@ -558,22 +575,6 @@ export default function NetworkMap() {
                   </AnimatePresence>
                 </div>
 
-                <div className="pt-6 mt-auto">
-                  <button 
-                    onClick={handleRunDiagnostic}
-                    disabled={isDiagnosing}
-                    className="w-full py-3 bg-[#627EEA] hover:bg-[#5068D0] disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[#627EEA]/20 flex items-center justify-center gap-3"
-                  >
-                    {isDiagnosing ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        {diagnosticStep === 1 ? 'CHECKING STATE...' : diagnosticStep === 2 ? 'VERIFYING P2P...' : 'FINALIZING...'}
-                      </>
-                    ) : (
-                      'RUN FULL DIAGNOSTIC'
-                    )}
-                  </button>
-                </div>
               </motion.div>
             ) : (
               <div className="flex-grow flex flex-col items-center justify-center text-center">
