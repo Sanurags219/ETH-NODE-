@@ -89,6 +89,9 @@ export default function NetworkMap() {
   const [pingResult, setPingResult] = useState<number | null>(null);
   const [showMoreDetails, setShowMoreDetails] = useState(false);
 
+  const [isDiagnosing, setIsDiagnosing] = useState(false);
+  const [diagnosticStep, setDiagnosticStep] = useState(0);
+
   // Real-time Simulation Loop
   useEffect(() => {
     const interval = setInterval(() => {
@@ -142,11 +145,26 @@ export default function NetworkMap() {
     setIsPinging(false);
   };
 
+  const handleRunDiagnostic = async () => {
+    if (!selectedNode) return;
+    setIsDiagnosing(true);
+    setDiagnosticStep(1);
+    await new Promise(r => setTimeout(r, 1200));
+    setDiagnosticStep(2);
+    await new Promise(r => setTimeout(r, 1500));
+    setDiagnosticStep(3);
+    await new Promise(r => setTimeout(r, 1200));
+    setIsDiagnosing(false);
+    setDiagnosticStep(0);
+  };
+
   // Reset states when node selection changes
   useEffect(() => {
     setPingResult(null);
     setIsPinging(false);
     setShowMoreDetails(false);
+    setIsDiagnosing(false);
+    setDiagnosticStep(0);
   }, [selectedNode]);
 
   const prevNodesRef = useRef<Node[]>([]);
@@ -427,6 +445,35 @@ export default function NetworkMap() {
                   />
                 </div>
 
+                <div className="pt-6 border-t border-white/5">
+                  <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-4">Internal Health Scan</div>
+                  <div className="space-y-4">
+                    <HealthBar 
+                      label="Thread Concurrency" 
+                      value={selectedNode.status === 'active' ? 72 : selectedNode.status === 'syncing' ? 94 : 12} 
+                      color="#627EEA" 
+                    />
+                    <HealthBar 
+                      label="Buffer Saturation" 
+                      value={selectedNode.status === 'syncing' ? 88 : 14} 
+                      color={selectedNode.status === 'syncing' ? '#F59E0B' : '#00FFA3'} 
+                    />
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                        <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1">Disk I/O</div>
+                        <div className="text-xs font-mono text-white">
+                          {selectedNode.status === 'syncing' ? '142.4 MB/s' : '1.2 MB/s'}
+                        </div>
+                      </div>
+                      <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                        <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1">Packet Loss</div>
+                        <div className="text-xs font-mono text-[#00FFA3]">0.002%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="pt-6 border-t border-white/5 space-y-4">
                   <div className="flex gap-3">
                     <button 
@@ -502,8 +549,19 @@ export default function NetworkMap() {
                 </div>
 
                 <div className="pt-6 mt-auto">
-                  <button className="w-full py-3 bg-[#627EEA] hover:bg-[#5068D0] text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[#627EEA]/20">
-                    DIAGNOSE CONNECTION
+                  <button 
+                    onClick={handleRunDiagnostic}
+                    disabled={isDiagnosing}
+                    className="w-full py-3 bg-[#627EEA] hover:bg-[#5068D0] disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[#627EEA]/20 flex items-center justify-center gap-3"
+                  >
+                    {isDiagnosing ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        {diagnosticStep === 1 ? 'CHECKING STATE...' : diagnosticStep === 2 ? 'VERIFYING P2P...' : 'FINALIZING...'}
+                      </>
+                    ) : (
+                      'RUN FULL DIAGNOSTIC'
+                    )}
                   </button>
                 </div>
               </motion.div>
@@ -579,6 +637,25 @@ function InspectorItem({ icon, label, value, valueClassName = "text-white" }: {
       <div className="flex items-center gap-2">
         {icon}
         <span className={`text-sm font-medium ${valueClassName}`}>{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function HealthBar({ label, value, color }: { label: string, value: number, color: string }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex justify-between items-center text-[8px] uppercase tracking-wider text-slate-500 font-bold">
+        <span>{label}</span>
+        <span className="font-mono" style={{ color }}>{value}%</span>
+      </div>
+      <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+        <motion.div 
+          initial={{ width: 0 }}
+          animate={{ width: `${value}%` }}
+          className="h-full"
+          style={{ backgroundColor: color }}
+        />
       </div>
     </div>
   );
