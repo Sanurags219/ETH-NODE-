@@ -40,6 +40,9 @@ interface Node extends d3.SimulationNodeDatum {
   history: NodeHistory[];
   peerId: string;
   listenAddrs: string[];
+  dhtStatus: 'active' | 'client' | 'refreshing';
+  connections: { inbound: number, outbound: number };
+  bandwidth: { up: string, down: string };
 }
 
 interface Link extends d3.SimulationLinkDatum<Node> {
@@ -70,7 +73,10 @@ const INITIAL_NODES: Node[] = [
     version: 'v2.4.1-alpha', os: 'Alpine Linux 3.18',
     history: generateMockHistory(5),
     peerId: '12D3KooW...sf9w',
-    listenAddrs: ['/ip4/127.0.0.1/tcp/4001', '/ip4/192.168.1.42/tcp/4001']
+    listenAddrs: ['/ip4/127.0.0.1/tcp/4001', '/ip4/192.168.1.42/tcp/4001'],
+    dhtStatus: 'active',
+    connections: { inbound: 42, outbound: 15 },
+    bandwidth: { up: '1.2 Mbps', down: '4.5 Mbps' }
   },
   { 
     id: 'peer-1', group: 2, label: 'Peer 0x71...f2', latency: 45, 
@@ -79,7 +85,10 @@ const INITIAL_NODES: Node[] = [
     version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS',
     history: generateMockHistory(45),
     peerId: '12D3KooL...P9x7',
-    listenAddrs: ['/ip4/85.12.33.210/tcp/4001']
+    listenAddrs: ['/ip4/85.12.33.210/tcp/4001'],
+    dhtStatus: 'active',
+    connections: { inbound: 12, outbound: 8 },
+    bandwidth: { up: '450 Kbps', down: '1.1 Mbps' }
   },
   { 
     id: 'peer-2', group: 2, label: 'Peer 0x3a...11', latency: 120, 
@@ -88,7 +97,10 @@ const INITIAL_NODES: Node[] = [
     version: 'v2.3.8-stable', os: 'Debian 12',
     history: generateMockHistory(120),
     peerId: '12D3KooK...Lm22',
-    listenAddrs: ['/ip4/103.4.112.5/tcp/4001']
+    listenAddrs: ['/ip4/103.4.112.5/tcp/4001'],
+    dhtStatus: 'refreshing',
+    connections: { inbound: 2, outbound: 3 },
+    bandwidth: { up: '12 Kbps', down: '45 Kbps' }
   },
   { 
     id: 'peer-3', group: 2, label: 'Peer 0xbc...44', latency: 15, 
@@ -97,7 +109,10 @@ const INITIAL_NODES: Node[] = [
     version: 'v2.4.0-rc1', os: 'Alpine Linux 3.19',
     history: generateMockHistory(15),
     peerId: '12D3KooJ...Qq55',
-    listenAddrs: ['/ip4/162.243.12.8/tcp/4001']
+    listenAddrs: ['/ip4/162.243.12.8/tcp/4001'],
+    dhtStatus: 'active',
+    connections: { inbound: 28, outbound: 12 },
+    bandwidth: { up: '890 Kbps', down: '2.4 Mbps' }
   },
   { 
     id: 'peer-4', group: 2, label: 'Peer 0x92...8e', latency: 85, 
@@ -106,7 +121,10 @@ const INITIAL_NODES: Node[] = [
     version: 'v2.3.9-stable', os: 'Ubuntu 20.04 LTS',
     history: generateMockHistory(85),
     peerId: '12D3KooH...As11',
-    listenAddrs: ['/ip4/94.23.4.156/tcp/4001']
+    listenAddrs: ['/ip4/94.23.4.156/tcp/4001'],
+    dhtStatus: 'client',
+    connections: { inbound: 5, outbound: 15 },
+    bandwidth: { up: '2.1 Mbps', down: '8.2 Mbps' }
   }
 ];
 
@@ -127,8 +145,7 @@ export function NetworkMap() {
   const [pingResult, setPingResult] = useState<number | null>(null);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnosticStep, setDiagnosticStep] = useState(0);
-  const [showHistory, setShowHistory] = useState(false);
-  const [showMoreDetails, setShowMoreDetails] = useState(false);
+  const [activeTab, setActiveTab] = useState<'health' | 'history' | 'network'>('health');
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
 
   const svgRef = useRef<SVGSVGElement>(null);
@@ -226,8 +243,7 @@ export function NetworkMap() {
     if (selectedNode) {
       if (pingResult !== null) setPingResult(null);
       if (isPinging) setIsPinging(false);
-      if (showHistory) setShowHistory(false);
-      if (showMoreDetails) setShowMoreDetails(false);
+      setActiveTab('health');
     }
   }, [selectedNode]);
 
@@ -325,66 +341,80 @@ export function NetworkMap() {
                   <StatCard label="LATENCY" value={`${selectedNode.latency}ms`} icon={<Zap size={12} />} color="#627EEA" />
                 </div>
 
-                <div className="pt-6 border-t border-white/5 space-y-6 text-sm">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-widest text-slate-500 mb-4 font-bold">Health Snapshot</div>
-                    <div className="space-y-4">
-                      <HealthBar label="CPU Usage" value={selectedNode.status === 'active' ? 42 : selectedNode.status === 'syncing' ? 94 : 5} limit={selectedNode.cpuLimit} color="#627EEA" />
-                      <HealthBar label="Memory Consumption" value={selectedNode.status === 'syncing' ? 88 : 14} limit={selectedNode.memoryLimit} color={selectedNode.status === 'syncing' ? '#F59E0B' : '#00FFA3'} />
-                      
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                          <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1 font-bold">Disk Read/Write</div>
-                          <div className="text-[11px] font-mono text-white">
-                            {selectedNode.status === 'syncing' ? '142.4 MB/s' : '1.2 MB/s'}
+                <div className="pt-4 border-t border-white/5">
+                  <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mb-6">
+                    <button onClick={() => setActiveTab('health')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'health' ? 'bg-[#627EEA] text-white' : 'text-slate-500 hover:text-white'}`}>
+                      <Activity size={12} /> HEALTH
+                    </button>
+                    <button onClick={() => setActiveTab('history')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'history' ? 'bg-[#627EEA] text-white' : 'text-slate-500 hover:text-white'}`}>
+                      <Clock size={12} /> HISTORY
+                    </button>
+                    <button onClick={() => setActiveTab('network')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'network' ? 'bg-[#627EEA] text-white' : 'text-slate-500 hover:text-white'}`}>
+                      <Network size={12} /> NETWORK
+                    </button>
+                  </div>
+
+                  <AnimatePresence mode="wait">
+                    {activeTab === 'health' && (
+                      <motion.div 
+                        key="health"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="space-y-6"
+                      >
+                        <div className="space-y-4">
+                          <HealthBar label="CPU Usage" value={selectedNode.status === 'active' ? 42 : selectedNode.status === 'syncing' ? 94 : 5} limit={selectedNode.cpuLimit} color="#627EEA" />
+                          <HealthBar label="Memory Consumption" value={selectedNode.status === 'syncing' ? 88 : 14} limit={selectedNode.memoryLimit} color={selectedNode.status === 'syncing' ? '#F59E0B' : '#00FFA3'} />
+                          
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                              <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1 font-bold">Disk Read/Write</div>
+                              <div className="text-[11px] font-mono text-white">
+                                {selectedNode.status === 'syncing' ? '142.4 MB/s' : '1.2 MB/s'}
+                              </div>
+                            </div>
+                            <div className="p-3 bg-white/5 rounded-xl border border-white/5">
+                              <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1 font-bold">Network Drops</div>
+                              <div className="text-[11px] font-mono text-[#00FFA3]">0.002%</div>
+                            </div>
                           </div>
                         </div>
-                        <div className="p-3 bg-white/5 rounded-xl border border-white/5">
-                          <div className="text-[8px] text-slate-500 uppercase tracking-tighter mb-1 font-bold">Network Drops</div>
-                          <div className="text-[11px] font-mono text-[#00FFA3]">0.002%</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={handlePing}
-                      disabled={isPinging}
-                      className="flex-grow py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                    >
-                      {isPinging ? <Loader2 size={12} className="animate-spin" /> : <Signal size={12} className="text-[#627EEA]" />}
-                      PING TEST
-                    </button>
-                    <button 
-                      onClick={() => setShowHistory(!showHistory)}
-                      className={`flex-grow py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all ${showHistory ? 'ring-1 ring-[#627EEA]/50 bg-white/10' : ''}`}
-                    >
-                      <Clock size={12} className={showHistory ? 'text-[#627EEA]' : ''} />
-                      HISTORY
-                    </button>
-                    <button 
-                      onClick={() => setShowMoreDetails(!showMoreDetails)}
-                      className={`flex-grow py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all ${showMoreDetails ? 'ring-1 ring-[#627EEA]/50 bg-white/10' : ''}`}
-                    >
-                      <Info size={12} className={showMoreDetails ? 'text-[#627EEA]' : ''} />
-                      DETAILS
-                    </button>
-                  </div>
+                        <button 
+                          onClick={handlePing}
+                          disabled={isPinging}
+                          className="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                        >
+                          {isPinging ? <Loader2 size={12} className="animate-spin" /> : <Signal size={12} className="text-[#627EEA]" />}
+                          RUN LIVE PING TEST
+                        </button>
 
-                  {pingResult !== null && (
-                    <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className={`p-3 border rounded-xl flex justify-between items-center ${pingResult < 50 ? 'bg-[#00FFA3]/5 border-[#00FFA3]/20' : 'bg-[#F59E0B]/5 border-[#F59E0B]/20'}`}>
-                      <span className="text-[10px] text-slate-400 font-medium">Ping Latency</span>
-                      <span className={`text-xs font-mono font-bold tracking-wider ${pingResult < 50 ? 'text-[#00FFA3]' : 'text-[#F59E0B]'}`}>{pingResult}ms</span>
-                    </motion.div>
-                  )}
+                        {pingResult !== null && (
+                          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`p-4 border rounded-xl flex justify-between items-center ${pingResult < 50 ? 'bg-[#00FFA3]/5 border-[#00FFA3]/20' : 'bg-[#F59E0B]/5 border-[#F59E0B]/20'}`}>
+                            <div className="flex items-center gap-3">
+                              <div className={`p-2 rounded-lg ${pingResult < 50 ? 'bg-[#00FFA3]/10' : 'bg-[#F59E0B]/10'}`}>
+                                <Zap size={14} className={pingResult < 50 ? 'text-[#00FFA3]' : 'text-[#F59E0B]'} />
+                              </div>
+                              <span className="text-[10px] text-slate-400 font-medium tracking-tight">RESPONSE TIME</span>
+                            </div>
+                            <span className={`text-sm font-mono font-bold tracking-wider ${pingResult < 50 ? 'text-[#00FFA3]' : 'text-[#F59E0B]'}`}>{pingResult}ms</span>
+                          </motion.div>
+                        )}
+                      </motion.div>
+                    )}
 
-                  <AnimatePresence>
-                    {showHistory && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden space-y-4 pt-2">
+                    {activeTab === 'history' && (
+                      <motion.div 
+                        key="history"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="space-y-4"
+                      >
                         <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
                           <div className="flex items-center justify-between">
-                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] font-bold">Node History</div>
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] font-bold">Latency (30m intervals)</div>
                             <div className="flex bg-white/5 rounded-lg p-0.5 border border-white/5">
                               {(['24h', '7d', '30d'] as const).map(range => (
                                 <button key={range} onClick={() => setTimeRange(range)} className={`px-2 py-1 text-[8px] font-bold rounded-md transition-all ${timeRange === range ? 'bg-[#627EEA] text-white' : 'text-slate-500 hover:text-slate-300'}`}>{range.toUpperCase()}</button>
@@ -392,7 +422,6 @@ export function NetworkMap() {
                             </div>
                           </div>
 
-                          {/* Chart Integration */}
                           <div className="h-[120px] w-full mt-2">
                             <ResponsiveContainer width="100%" height="100%">
                               <AreaChart data={selectedNode.history}>
@@ -403,14 +432,8 @@ export function NetworkMap() {
                                   </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
-                                <XAxis 
-                                  dataKey="timestamp" 
-                                  hide 
-                                />
-                                <YAxis 
-                                  hide 
-                                  domain={[0, 'dataMax + 20']}
-                                />
+                                <XAxis dataKey="timestamp" hide />
+                                <YAxis hide domain={[0, 'dataMax + 20']} />
                                 <Tooltip 
                                   content={({ active, payload }) => {
                                     if (active && payload && payload.length) {
@@ -424,19 +447,12 @@ export function NetworkMap() {
                                     return null;
                                   }}
                                 />
-                                <Area 
-                                  type="monotone" 
-                                  dataKey="latency" 
-                                  stroke="#627EEA" 
-                                  fillOpacity={1} 
-                                  fill="url(#colorLatency)" 
-                                  strokeWidth={2}
-                                />
+                                <Area type="monotone" dataKey="latency" stroke="#627EEA" fillOpacity={1} fill="url(#colorLatency)" strokeWidth={2} />
                               </AreaChart>
                             </ResponsiveContainer>
                           </div>
 
-                          <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                          <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1 custom-scrollbar">
                             {[...selectedNode.history].reverse().map((event, idx) => (
                               <div key={idx} className="flex gap-3 relative">
                                 {idx !== selectedNode.history.length - 1 && <div className="absolute left-1.5 top-4 bottom-0 w-[1px] bg-white/5" />}
@@ -451,36 +467,64 @@ export function NetworkMap() {
                         </div>
                       </motion.div>
                     )}
-                  </AnimatePresence>
 
-                  <AnimatePresence>
-                    {showMoreDetails && (
-                      <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden space-y-4 pt-2">
-                        <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/5">
+                    {activeTab === 'network' && (
+                      <motion.div 
+                        key="network"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="space-y-4"
+                      >
+                        <div className="space-y-5 p-4 bg-white/5 rounded-xl border border-white/5">
                           <div>
-                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-3 font-bold flex items-center gap-2"><Cpu size={10} /> Software & Environment</div>
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-3 font-bold flex items-center gap-2 px-1"><Cpu size={10} /> Runtime Environment</div>
                             <div className="grid grid-cols-2 gap-3 text-[10px]">
-                              <div className="p-2 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">VERSION</div><div className="font-mono text-white">{selectedNode.version}</div></div>
-                              <div className="p-2 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">OPERATING SYSTEM</div><div className="text-white">{selectedNode.os}</div></div>
+                              <div className="p-3 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">VERSION</div><div className="font-mono text-white">{selectedNode.version}</div></div>
+                              <div className="p-3 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">OS</div><div className="text-white truncate">{selectedNode.os}</div></div>
                             </div>
                           </div>
 
                           <div className="pt-2 border-t border-white/5">
-                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-3 font-bold flex items-center gap-2"><Network size={10} /> P2P Network Config</div>
-                            <div className="space-y-2">
-                              <div className="p-2 bg-black/20 rounded-lg border border-white/5 text-[10px]">
-                                <div className="text-slate-500 mb-1">CORE PEER ID</div>
-                                <div className="font-mono text-white overflow-hidden text-ellipsis whitespace-nowrap">{selectedNode.peerId}</div>
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-3 font-bold flex items-center gap-2 px-1"><Network size={10} /> P2P Configuration</div>
+                            <div className="space-y-3">
+                              <div className="p-3 bg-black/20 rounded-lg border border-white/5 text-[10px]">
+                                <div className="text-slate-500 mb-2">CORE PEER ID</div>
+                                <div className="font-mono text-white break-all bg-white/5 p-2 rounded leading-relaxed border border-white/5">{selectedNode.peerId}</div>
                               </div>
-                              <div className="p-2 bg-black/20 rounded-lg border border-white/5 text-[10px]">
-                                <div className="text-slate-500 mb-1">PROTOCOLS / LISTEN ADDRESSES</div>
-                                <div className="space-y-1 mt-1 font-mono text-white/80">
-                                  {selectedNode.listenAddrs.map((addr, i) => <div key={i} className="text-[9px] bg-slate-800/50 p-1 rounded px-2">{addr}</div>)}
+                              
+                              <div className="p-3 bg-black/20 rounded-lg border border-white/5 text-[10px]">
+                                <div className="text-slate-500 mb-2">LISTEN ADDRESSES</div>
+                                <div className="space-y-1.5 font-mono text-white/80">
+                                  {selectedNode.listenAddrs.map((addr, i) => (
+                                    <div key={i} className="text-[9px] bg-slate-800/50 p-1.5 rounded-md px-3 border border-white/5 truncate">{addr}</div>
+                                  ))}
                                 </div>
                               </div>
-                              <div className="grid grid-cols-2 gap-3 text-[10px]">
-                                <div className="p-2 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">ENCRYPTION</div><div className="text-white">AES-256-GCM</div></div>
-                                <div className="p-2 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">RELAY MODE</div><div className="text-white">Autonat / Proxy</div></div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-black/20 rounded-lg border border-white/5">
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1">DHT STATUS</div>
+                                  <div className="flex items-center gap-2">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${selectedNode.dhtStatus === 'active' ? 'bg-[#00FFA3]' : 'bg-[#F59E0B]'}`} />
+                                    <span className="text-[10px] font-bold text-white uppercase">{selectedNode.dhtStatus}</span>
+                                  </div>
+                                </div>
+                                <div className="p-3 bg-black/20 rounded-lg border border-white/5">
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1">CONNECTIONS</div>
+                                  <div className="text-[10px] font-mono text-white">{selectedNode.connections.inbound} IN / {selectedNode.connections.outbound} OUT</div>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-black/20 rounded-lg border border-white/5">
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1">ENCRYPTION</div>
+                                  <div className="text-[10px] font-bold text-white">TLS 1.3 / AES-256</div>
+                                </div>
+                                <div className="p-3 bg-black/20 rounded-lg border border-white/5">
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1">TRAFFIC (UP/DOWN)</div>
+                                  <div className="text-[10px] font-mono text-white">{selectedNode.bandwidth.up} / {selectedNode.bandwidth.down}</div>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -488,21 +532,35 @@ export function NetworkMap() {
                       </motion.div>
                     )}
                   </AnimatePresence>
-
-                  <button onClick={handleRunDiagnostic} disabled={isDiagnosing} className="w-full py-4 bg-[#627EEA] hover:bg-[#5068D0] disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[#627EEA]/20 flex items-center justify-center gap-3">
-                    {isDiagnosing ? (
-                      <>
-                        <Loader2 size={16} className="animate-spin" />
-                        {diagnosticStep === 1 ? 'CHECKING STATE...' : diagnosticStep === 2 ? 'VERIFYING P2P...' : 'FINALIZING...'}
-                      </>
-                    ) : (
-                      <>
-                        <Terminal size={14} />
-                        RUN FULL DIAGNOSTIC
-                      </>
-                    )}
-                  </button>
                 </div>
+                
+                <button 
+                  onClick={handleRunDiagnostic} 
+                  disabled={isDiagnosing} 
+                  className="w-full py-4 mt-4 bg-[#627EEA] hover:bg-[#5068D0] disabled:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-[#627EEA]/20 flex items-center justify-center gap-3 relative overflow-hidden"
+                >
+                  {isDiagnosing && (
+                    <motion.div 
+                      initial={{ left: '-100%' }}
+                      animate={{ left: '100%' }}
+                      transition={{ duration: 1.5, repeat: Infinity, ease: 'linear' }}
+                      className="absolute top-0 bottom-0 w-1/2 bg-white/20 skew-x-12"
+                    />
+                  )}
+                  {isDiagnosing ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      <span className="animate-pulse">
+                        {diagnosticStep === 1 ? 'CHECKING STATE...' : diagnosticStep === 2 ? 'VERIFYING P2P...' : 'FINALIZING...'}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Terminal size={14} />
+                      RUN FULL CORE DIAGNOSTIC
+                    </>
+                  )}
+                </button>
               </div>
             </motion.div>
           )}
