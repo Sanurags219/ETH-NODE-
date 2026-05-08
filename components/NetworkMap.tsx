@@ -8,6 +8,10 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, 
+  Tooltip, ResponsiveContainer, AreaChart, Area 
+} from 'recharts';
+import { 
   Search, Filter, X, Globe, Users, Zap, Shield, 
   Clock, Network, Activity, ChevronDown, ChevronUp, 
   Loader2, Signal, Cpu, HardDrive, Info, Terminal
@@ -47,8 +51,8 @@ interface Link extends d3.SimulationLinkDatum<Node> {
 const generateMockHistory = (baseLatency: number): NodeHistory[] => {
   const history: NodeHistory[] = [];
   const now = new Date();
-  for (let i = 0; i < 10; i++) {
-    const time = new Date(now.getTime() - i * 3600000 * 2);
+  for (let i = 0; i < 20; i++) {
+    const time = new Date(now.getTime() - (19 - i) * 1800000); // Every 30 mins, 20 points
     history.push({
       timestamp: time.toISOString(),
       status: Math.random() > 0.1 ? 'active' : 'idle',
@@ -387,16 +391,63 @@ export function NetworkMap() {
                               ))}
                             </div>
                           </div>
-                          <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">{selectedNode.history.map((event, idx) => (
-                            <div key={idx} className="flex gap-3 relative">
-                              {idx !== selectedNode.history.length - 1 && <div className="absolute left-1.5 top-4 bottom-0 w-[1px] bg-white/5" />}
-                              <div className={`mt-1.5 w-3 h-3 rounded-full flex-shrink-0 z-10 ${event.status === 'active' ? 'bg-[#00FFA3]/20 border border-[#00FFA3]/50' : 'bg-slate-500/20 border border-slate-500/50'}`}><div className={`w-1 h-1 rounded-full m-auto mt-0.5 ${event.status === 'active' ? 'bg-[#00FFA3]' : 'bg-slate-400'}`} /></div>
-                              <div className="flex-grow space-y-1 pb-3">
-                                <div className="flex justify-between items-center"><span className="text-[9px] font-bold text-white uppercase tracking-tight">STATUS: {event.status.toUpperCase()}</span><span className="text-[8px] font-mono text-slate-500">{new Date(event.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
-                                <div className="flex items-center gap-2"><Zap size={8} className="text-[#627EEA]" /><span className="text-[9px] font-mono text-slate-400">Latency: {event.latency}ms</span></div>
+
+                          {/* Chart Integration */}
+                          <div className="h-[120px] w-full mt-2">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <AreaChart data={selectedNode.history}>
+                                <defs>
+                                  <linearGradient id="colorLatency" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="5%" stopColor="#627EEA" stopOpacity={0.3}/>
+                                    <stop offset="95%" stopColor="#627EEA" stopOpacity={0}/>
+                                  </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1e293b" />
+                                <XAxis 
+                                  dataKey="timestamp" 
+                                  hide 
+                                />
+                                <YAxis 
+                                  hide 
+                                  domain={[0, 'dataMax + 20']}
+                                />
+                                <Tooltip 
+                                  content={({ active, payload }) => {
+                                    if (active && payload && payload.length) {
+                                      return (
+                                        <div className="bg-slate-800 border border-white/10 p-2 rounded-lg shadow-xl text-[10px]">
+                                          <p className="text-slate-400 font-medium">{new Date(payload[0].payload.timestamp).toLocaleTimeString()}</p>
+                                          <p className="text-[#627EEA] font-bold">{payload[0].value}ms</p>
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  }}
+                                />
+                                <Area 
+                                  type="monotone" 
+                                  dataKey="latency" 
+                                  stroke="#627EEA" 
+                                  fillOpacity={1} 
+                                  fill="url(#colorLatency)" 
+                                  strokeWidth={2}
+                                />
+                              </AreaChart>
+                            </ResponsiveContainer>
+                          </div>
+
+                          <div className="space-y-3 max-h-[160px] overflow-y-auto pr-1 custom-scrollbar">
+                            {[...selectedNode.history].reverse().map((event, idx) => (
+                              <div key={idx} className="flex gap-3 relative">
+                                {idx !== selectedNode.history.length - 1 && <div className="absolute left-1.5 top-4 bottom-0 w-[1px] bg-white/5" />}
+                                <div className={`mt-1.5 w-3 h-3 rounded-full flex-shrink-0 z-10 ${event.status === 'active' ? 'bg-[#00FFA3]/20 border border-[#00FFA3]/50' : 'bg-slate-500/20 border border-slate-500/50'}`}><div className={`w-1 h-1 rounded-full m-auto mt-0.5 ${event.status === 'active' ? 'bg-[#00FFA3]' : 'bg-slate-400'}`} /></div>
+                                <div className="flex-grow space-y-1 pb-3">
+                                  <div className="flex justify-between items-center"><span className="text-[9px] font-bold text-white uppercase tracking-tight">STATUS: {event.status.toUpperCase()}</span><span className="text-[8px] font-mono text-slate-500">{new Date(event.timestamp).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+                                  <div className="flex items-center gap-2"><Zap size={8} className="text-[#627EEA]" /><span className="text-[9px] font-mono text-slate-400">Latency: {event.latency}ms</span></div>
+                                </div>
                               </div>
-                            </div>
-                          ))}</div>
+                            ))}
+                          </div>
                         </div>
                       </motion.div>
                     )}
