@@ -77,6 +77,8 @@ const INITIAL_LINKS: Link[] = [
 export default function NetworkMap() {
   const svgRef = useRef<SVGSVGElement>(null);
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [nodes] = useState<Node[]>(INITIAL_NODES);
   const [links] = useState<Link[]>(INITIAL_LINKS);
   
@@ -133,7 +135,17 @@ export default function NetworkMap() {
         .on('start', dragstarted)
         .on('drag', dragged)
         .on('end', dragended) as any)
-      .on('click', (event, d) => setSelectedNode(d));
+      .on('click', (event, d) => setSelectedNode(d))
+      .on('mouseover', (event, d) => {
+        setHoveredNode(d);
+        setTooltipPos({ x: event.pageX, y: event.pageY });
+      })
+      .on('mousemove', (event) => {
+        setTooltipPos({ x: event.pageX, y: event.pageY });
+      })
+      .on('mouseout', () => {
+        setHoveredNode(null);
+      });
 
     // Glow effect filter
     const defs = svg.append('defs');
@@ -344,6 +356,51 @@ export default function NetworkMap() {
           </AnimatePresence>
         </div>
       </div>
+
+      <AnimatePresence>
+        {hoveredNode && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.1 }}
+            className="fixed z-[60] pointer-events-none"
+            style={{ 
+              left: tooltipPos.x + 15, 
+              top: tooltipPos.y + 15 
+            }}
+          >
+            <div className="bg-[#0A0D12]/90 backdrop-blur-md border border-white/10 rounded-lg p-3 shadow-2xl min-w-[180px]">
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-1.5 h-1.5 rounded-full ${
+                  hoveredNode.status === 'active' ? 'bg-[#00FFA3]' : 
+                  hoveredNode.status === 'syncing' ? 'bg-[#F59E0B]' : 'bg-slate-400'
+                }`} />
+                <span className="text-xs font-bold text-white truncate">{hoveredNode.label}</span>
+              </div>
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-500">IP Address</span>
+                  <span className="text-[10px] font-mono text-slate-300">{hoveredNode.ip}</span>
+                </div>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-500">Location</span>
+                  <span className="text-[10px] text-slate-300">{hoveredNode.location}</span>
+                </div>
+                <div className="flex justify-between items-center gap-4">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-500">Status</span>
+                  <span className={`text-[9px] font-bold uppercase tracking-tight ${
+                    hoveredNode.status === 'active' ? 'text-[#00FFA3]' : 
+                    hoveredNode.status === 'syncing' ? 'text-[#F59E0B]' : 'text-slate-400'
+                  }`}>
+                    {hoveredNode.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
