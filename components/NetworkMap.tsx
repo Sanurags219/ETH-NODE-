@@ -31,6 +31,7 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
   const [isPinging, setIsPinging] = useState(false);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnosticStep, setDiagnosticStep] = useState(0);
+  const [diagnosticResults, setDiagnosticResults] = useState<{ step: number; label: string; status: 'success' | 'warning'; detail: string }[]>([]);
   const [activeTab, setActiveTab] = useState<'health' | 'history' | 'network'>('health');
   const [timeRange, setTimeRange] = useState<'24h' | '7d' | '30d'>('24h');
 
@@ -178,9 +179,10 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
   }, [nodes, links, searchQuery, selectedNodeId]);
 
   useEffect(() => {
-    if (selectedNode) {
+    if (selectedNodeId) {
       if (pingResult !== null) setPingResult(null);
       if (isPinging) setIsPinging(false);
+      setDiagnosticResults([]);
       setActiveTab('health');
     }
   }, [selectedNodeId]);
@@ -197,11 +199,20 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
   const handleRunDiagnostic = () => {
     setIsDiagnosing(true);
     setDiagnosticStep(1);
-    const steps = [1, 2, 3];
-    steps.forEach((step, i) => {
+    setDiagnosticResults([]);
+    
+    const steps = [
+      { step: 1, label: 'Kernel Integrity', detail: 'Checksum verified with root set.' },
+      { step: 2, label: 'DHT Routing Info', detail: '24 nodes found in closest bucket.' },
+      { step: 3, label: 'Consensus Sync', detail: 'Head block matches stable height.' }
+    ];
+
+    steps.forEach((s, i) => {
       setTimeout(() => {
-        setDiagnosticStep(step);
-        if (step === 3) {
+        setDiagnosticStep(s.step);
+        setDiagnosticResults(prev => [...prev, { ...s, status: i === 1 && Math.random() > 0.7 ? 'warning' : 'success' }]);
+        
+        if (s.step === 3) {
           setTimeout(() => {
             setIsDiagnosing(false);
             setDiagnosticStep(0);
@@ -467,6 +478,43 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
                   </AnimatePresence>
                 </div>
                 
+                {diagnosticResults.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    className="mt-6 space-y-3"
+                  >
+                    <div className="text-[10px] uppercase font-bold text-slate-500 flex items-center justify-between px-1 mb-2">
+                      <span>Diagnostic Report</span>
+                      <Activity size={10} className="text-[#627EEA]" />
+                    </div>
+                    <div className="space-y-2.5">
+                      {diagnosticResults.map((res, i) => (
+                        <motion.div 
+                          key={i}
+                          initial={{ x: -10, opacity: 0 }}
+                          animate={{ x: 0, opacity: 1 }}
+                          transition={{ delay: i * 0.1 }}
+                          className="p-3 bg-white/5 rounded-xl border border-white/5 flex items-start gap-3"
+                        >
+                          <div className={`mt-0.5 p-1 rounded-md ${res.status === 'success' ? 'bg-[#00FFA3]/10 text-[#00FFA3]' : 'bg-[#F59E0B]/10 text-[#F59E0B]'}`}>
+                            {res.status === 'success' ? <Signal size={12} /> : <Activity size={12} />}
+                          </div>
+                          <div className="flex-grow">
+                            <div className="flex justify-between items-center mb-1">
+                              <span className="text-[11px] font-bold text-white leading-none">{res.label}</span>
+                              <span className={`text-[8px] font-bold uppercase tracking-tighter ${res.status === 'success' ? 'text-[#00FFA3]' : 'text-[#F59E0B]'}`}>
+                                {res.status.toUpperCase()}
+                              </span>
+                            </div>
+                            <p className="text-[9px] text-slate-400 font-mono leading-relaxed">{res.detail}</p>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+
                 <button 
                   onClick={handleRunDiagnostic} 
                   disabled={isDiagnosing} 
