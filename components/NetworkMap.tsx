@@ -22,6 +22,8 @@ interface Node extends d3.SimulationNodeDatum {
   uptime: string;
   cpuLimit: number;
   memoryLimit: number;
+  version: string;
+  os: string;
 }
 
 interface Link extends d3.SimulationLinkDatum<Node> {
@@ -32,42 +34,50 @@ const INITIAL_NODES: Node[] = [
   { 
     id: 'local-node', group: 1, label: 'Local Node', latency: 0, 
     location: 'San Francisco, US', ip: '192.168.1.42', status: 'active', 
-    lastSeen: 'Now', uptime: '142d 18h', cpuLimit: 90, memoryLimit: 85
+    lastSeen: 'Now', uptime: '142d 18h', cpuLimit: 90, memoryLimit: 85,
+    version: 'v2.4.1-alpha', os: 'Alpine Linux 3.18'
   },
   { 
     id: 'peer-1', group: 2, label: 'Peer 0x71...f2', latency: 45, 
     location: 'London, UK', ip: '82.14.22.103', status: 'active', 
-    lastSeen: '2s ago', uptime: '12d 4h', cpuLimit: 80, memoryLimit: 75
+    lastSeen: '2s ago', uptime: '12d 4h', cpuLimit: 80, memoryLimit: 75,
+    version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS'
   },
   { 
     id: 'peer-2', group: 2, label: 'Peer 0x3a...11', latency: 120, 
     location: 'Tokyo, JP', ip: '114.162.3.99', status: 'active', 
-    lastSeen: '15s ago', uptime: '3d 2h', cpuLimit: 70, memoryLimit: 60
+    lastSeen: '15s ago', uptime: '3d 2h', cpuLimit: 70, memoryLimit: 60,
+    version: 'v2.3.8-stable', os: 'Debian 12'
   },
   { 
     id: 'peer-3', group: 2, label: 'Peer 0xbc...44', latency: 15, 
     location: 'New York, US', ip: '104.28.18.22', status: 'active', 
-    lastSeen: 'Now', uptime: '45d 11h', cpuLimit: 95, memoryLimit: 90
+    lastSeen: 'Now', uptime: '45d 11h', cpuLimit: 95, memoryLimit: 90,
+    version: 'v2.4.0-rc1', os: 'Alpine Linux 3.19'
   },
   { 
     id: 'peer-4', group: 2, label: 'Peer 0x92...8e', latency: 85, 
     location: 'Berlin, DE', ip: '172.67.74.1', status: 'syncing', 
-    lastSeen: 'Syncing', uptime: '0d 12h', cpuLimit: 75, memoryLimit: 70
+    lastSeen: 'Syncing', uptime: '0d 12h', cpuLimit: 75, memoryLimit: 70,
+    version: 'v2.3.9-stable', os: 'Ubuntu 20.04 LTS'
   },
   { 
     id: 'peer-5', group: 2, label: 'Peer 0x11...cd', latency: 210, 
     location: 'Sydney, AU', ip: '1.1.1.1', status: 'idle', 
-    lastSeen: '2m ago', uptime: '8d 14h', cpuLimit: 60, memoryLimit: 50
+    lastSeen: '2m ago', uptime: '8d 14h', cpuLimit: 60, memoryLimit: 50,
+    version: 'v2.2.1-legacy', os: 'CentOS Stream 9'
   },
   { 
     id: 'peer-6', group: 2, label: 'Peer 0xef...22', latency: 60, 
     location: 'Paris, FR', ip: '185.199.108.153', status: 'active', 
-    lastSeen: '5s ago', uptime: '14d 6h', cpuLimit: 85, memoryLimit: 80
+    lastSeen: '5s ago', uptime: '14d 6h', cpuLimit: 85, memoryLimit: 80,
+    version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS'
   },
   { 
     id: 'peer-7', group: 2, label: 'Peer 0x44...9a', latency: 30, 
     location: 'Toronto, CA', ip: '142.251.33.110', status: 'active', 
-    lastSeen: '1s ago', uptime: '90d 1h', cpuLimit: 88, memoryLimit: 82
+    lastSeen: '1s ago', uptime: '90d 1h', cpuLimit: 88, memoryLimit: 82,
+    version: 'v2.4.0-rc2', os: 'Alpine Linux 3.19'
   },
 ];
 
@@ -549,26 +559,51 @@ export default function NetworkMap() {
                         className="overflow-hidden space-y-4 pt-2"
                       >
                         <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/5">
-                          <InspectorItem 
-                            icon={<Activity size={12} className="text-slate-400" />}
-                            label="Connection Stability"
-                            value="99.98%"
-                          />
-                          <InspectorItem 
-                            icon={<Shield size={12} className="text-slate-400" />}
-                            label="Encryption"
-                            value="AES-256-GCM"
-                          />
-                          <InspectorItem 
-                            icon={<Clock size={12} className="text-slate-400" />}
-                            label="Session Start"
-                            value="May 08, 04:12 UTC"
-                          />
-                          <InspectorItem 
-                            icon={<Users size={12} className="text-slate-400" />}
-                            label="Active Streams"
-                            value="12 inbound / 8 outbound"
-                          />
+                          <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-2 font-bold">Software & OS</div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <InspectorItem 
+                              icon={<Activity size={12} className="text-slate-400" />}
+                              label="Version"
+                              value={selectedNode.version}
+                            />
+                            <InspectorItem 
+                              icon={<Shield size={12} className="text-slate-400" />}
+                              label="OS"
+                              value={selectedNode.os}
+                            />
+                          </div>
+
+                          <div className="pt-2 border-t border-white/5 mt-2">
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-2 font-bold">Network Config</div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <InspectorItem 
+                                icon={<Network size={12} className="text-slate-400" />}
+                                label="Protocol"
+                                value="libp2p v1.2"
+                              />
+                              <InspectorItem 
+                                icon={<Shield size={12} className="text-slate-400" />}
+                                label="Encryption"
+                                value="AES-256-GCM"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-white/5 mt-2">
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-2 font-bold">Relational Stats</div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <InspectorItem 
+                                icon={<Activity size={12} className="text-slate-400" />}
+                                label="Stability"
+                                value="99.98%"
+                              />
+                              <InspectorItem 
+                                icon={<Users size={12} className="text-slate-400" />}
+                                label="Streams"
+                                value="20 Total"
+                              />
+                            </div>
+                          </div>
                         </div>
                       </motion.div>
                     )}
