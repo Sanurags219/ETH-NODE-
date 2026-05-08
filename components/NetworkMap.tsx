@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { motion, AnimatePresence } from 'motion/react';
-import { Search, Filter, X, Globe, Users, Zap, Shield, Clock, Network, Activity } from 'lucide-react';
+import { Search, Filter, X, Globe, Users, Zap, Shield, Clock, Network, Activity, ChevronDown, ChevronUp, Loader2, Signal } from 'lucide-react';
 
 interface Node extends d3.SimulationNodeDatum {
   id: string;
@@ -79,28 +79,115 @@ export default function NetworkMap() {
   const [selectedNode, setSelectedNode] = useState<Node | null>(null);
   const [hoveredNode, setHoveredNode] = useState<Node | null>(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-  const [nodes] = useState<Node[]>(INITIAL_NODES);
+  const [nodes, setNodes] = useState<Node[]>(INITIAL_NODES);
   const [links] = useState<Link[]>(INITIAL_LINKS);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'syncing' | 'idle'>('all');
 
-  const filteredNodes = nodes.filter(node => {
-    const matchesSearch = 
-      node.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      node.ip.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      node.location.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || node.status === statusFilter;
-    
-    return matchesSearch && matchesStatus;
-  });
+  const [isPinging, setIsPinging] = useState(false);
+  const [pingResult, setPingResult] = useState<number | null>(null);
+  const [showMoreDetails, setShowMoreDetails] = useState(false);
 
-  const filteredLinks = links.filter(link => {
-    const sourceId = typeof link.source === 'string' ? link.source : (link.source as Node).id;
-    const targetId = typeof link.target === 'string' ? link.target : (link.target as Node).id;
-    return filteredNodes.find(n => n.id === sourceId) && filteredNodes.find(n => n.id === targetId);
-  });
+  // Real-time Simulation Loop
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNodes(prevNodes => prevNodes.map(node => {
+        // Don't simulate changes for the local node
+        if (node.id === 'local-node') return node;
+
+        // Randomly update latency slightly
+        const latencyChange = Math.floor(Math.random() * 11) - 5; // -5 to +5
+        const newLatency = Math.max(5, node.latency + latencyChange);
+
+        // Randomly update status occasionally (5% chance)
+        let newStatus = node.status;
+        let lastSeen = node.lastSeen;
+        if (Math.random() < 0.05) {
+          const statuses: ('active' | 'syncing' | 'idle')[] = ['active', 'syncing', 'idle'];
+          newStatus = statuses[Math.floor(Math.random() * statuses.length)];
+          
+          if (newStatus === 'active') lastSeen = 'Now';
+          else if (newStatus === 'syncing') lastSeen = 'Syncing';
+          else lastSeen = `${Math.floor(Math.random() * 60)}s ago`;
+        }
+
+        // Randomly update uptime string occasionally
+        const newUptime = node.uptime;
+
+        return {
+          ...node,
+          latency: newLatency,
+          status: newStatus,
+          lastSeen
+        };
+      }));
+    }, 4000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const handlePingNode = async () => {
+    if (!selectedNode) return;
+    setIsPinging(true);
+    setPingResult(null);
+    
+    // Simulate network delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    
+    // Random jitter around base latency
+    const baseLatency = selectedNode.latency || 45;
+    const jitter = Math.floor(Math.random() * 15) - 7;
+    setPingResult(Math.max(5, baseLatency + jitter));
+    setIsPinging(false);
+  };
+
+  // Reset states when node selection changes
+  useEffect(() => {
+    setPingResult(null);
+    setIsPinging(false);
+    setShowMoreDetails(false);
+  }, [selectedNode]);
+
+  const prevNodesRef = useRef<Node[]>([]);
+
+  const filteredNodes = useMemo(() => {
+    const filtered = nodes.filter(node => {
+      const matchesSearch = 
+        node.label.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        node.ip.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        node.location.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || node.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+
+    // Preserve positions from previous simulation state to prevent "jumping"
+    return filtered.map(node => {
+      const prev = prevNodesRef.current.find(p => p.id === node.id);
+      if (prev) {
+        return {
+          ...node,
+          x: prev.x,
+          y: prev.y,
+          vx: prev.vx,
+          vy: prev.vy,
+          fx: (node.id === selectedNode?.id) ? prev.x : null,
+          fy: (node.id === selectedNode?.id) ? prev.y : null
+        };
+      }
+      return node;
+    });
+  }, [nodes, searchQuery, statusFilter, selectedNode?.id]);
+
+  const filteredLinks = useMemo(() => {
+    return links.filter(link => {
+      const sourceId = typeof link.source === 'string' ? link.source : (link.source as Node).id;
+      const targetId = typeof link.target === 'string' ? link.target : (link.target as Node).id;
+      return filteredNodes.find(n => n.id === sourceId) && filteredNodes.find(n => n.id === targetId);
+    });
+  }, [filteredNodes, links]);
 
   useEffect(() => {
     if (!svgRef.current) return;
@@ -183,6 +270,7 @@ export default function NetworkMap() {
       .style('filter', d => d.status === 'active' || d.id === 'local-node' ? 'url(#glow)' : 'none');
 
     simulation.on('tick', () => {
+      prevNodesRef.current = [...filteredNodes];
       link
         .attr('x1', d => (d.source as Node).x!)
         .attr('y1', d => (d.source as Node).y!)
@@ -337,6 +425,80 @@ export default function NetworkMap() {
                     label="P2P Protocol"
                     value="libp2p v1.2"
                   />
+                </div>
+
+                <div className="pt-6 border-t border-white/5 space-y-4">
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={handlePingNode}
+                      disabled={isPinging}
+                      className="flex-1 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                    >
+                      {isPinging ? (
+                        <>
+                          <Loader2 size={12} className="animate-spin text-[#627EEA]" />
+                          PINGING...
+                        </>
+                      ) : (
+                        <>
+                          <Signal size={12} className="text-[#627EEA]" />
+                          RUN PING TEST
+                        </>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => setShowMoreDetails(!showMoreDetails)}
+                      className="px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-bold text-white flex items-center justify-center gap-2 transition-all"
+                    >
+                      {showMoreDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      DETAILS
+                    </button>
+                  </div>
+
+                  {pingResult !== null && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-3 bg-[#00FFA3]/5 border border-[#00FFA3]/20 rounded-xl flex justify-between items-center"
+                    >
+                      <span className="text-[10px] text-slate-400 font-medium">Last Ping Latency</span>
+                      <span className="text-xs font-mono font-bold text-[#00FFA3] tracking-wider">{pingResult}ms</span>
+                    </motion.div>
+                  )}
+
+                  <AnimatePresence>
+                    {showMoreDetails && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        className="overflow-hidden space-y-4 pt-2"
+                      >
+                        <div className="space-y-4 p-4 bg-white/5 rounded-xl border border-white/5">
+                          <InspectorItem 
+                            icon={<Activity size={12} className="text-slate-400" />}
+                            label="Connection Stability"
+                            value="99.98%"
+                          />
+                          <InspectorItem 
+                            icon={<Shield size={12} className="text-slate-400" />}
+                            label="Encryption"
+                            value="AES-256-GCM"
+                          />
+                          <InspectorItem 
+                            icon={<Clock size={12} className="text-slate-400" />}
+                            label="Session Start"
+                            value="May 08, 04:12 UTC"
+                          />
+                          <InspectorItem 
+                            icon={<Users size={12} className="text-slate-400" />}
+                            label="Active Streams"
+                            value="12 inbound / 8 outbound"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
 
                 <div className="pt-6 mt-auto">
