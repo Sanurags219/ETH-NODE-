@@ -1,7 +1,6 @@
 'use client';
 
 /* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react-hooks/set-state-in-effect */
 /* eslint-disable react-hooks/refs */
 
@@ -234,7 +233,6 @@ export default function NetworkMap() {
 
     // Preserve positions from previous simulation state to prevent "jumping"
     return filtered.map(node => {
-      // eslint-disable-next-line react-hooks/refs
       const prev = prevNodesRef.current.find(p => p.id === node.id);
       if (prev) {
         return {
@@ -584,10 +582,18 @@ export default function NetworkMap() {
                     <motion.div 
                       initial={{ opacity: 0, y: -10 }}
                       animate={{ opacity: 1, y: 0 }}
-                      className="p-3 bg-[#00FFA3]/5 border border-[#00FFA3]/20 rounded-xl flex justify-between items-center"
+                      className={`p-3 border rounded-xl flex justify-between items-center ${
+                        pingResult < 50 
+                          ? 'bg-[#00FFA3]/5 border-[#00FFA3]/20' 
+                          : 'bg-[#F59E0B]/5 border-[#F59E0B]/20'
+                      }`}
                     >
                       <span className="text-[10px] text-slate-400 font-medium">Last Ping Latency</span>
-                      <span className="text-xs font-mono font-bold text-[#00FFA3] tracking-wider">{pingResult}ms</span>
+                      <span className={`text-xs font-mono font-bold tracking-wider ${
+                        pingResult < 50 ? 'text-[#00FFA3]' : 'text-[#F59E0B]'
+                      }`}>
+                        {pingResult}ms
+                      </span>
                     </motion.div>
                   )}
 

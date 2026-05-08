@@ -1,8 +1,5 @@
 'use client';
 
-/* eslint-disable react-hooks/exhaustive-deps */
-/* eslint-disable react-hooks/rules-of-hooks */
-/* eslint-disable @next/next/no-img-element */
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import { useEffect, useState } from 'react';
