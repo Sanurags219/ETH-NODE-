@@ -16,133 +16,19 @@ import {
   Clock, Network, Activity, ChevronDown, ChevronUp, 
   Loader2, Signal, Cpu, HardDrive, Info, Terminal
 } from 'lucide-react';
+import { Node, Link, INITIAL_LINKS } from '@/lib/types';
 
-interface NodeHistory {
-  timestamp: string;
-  status: 'active' | 'syncing' | 'idle';
-  latency: number;
+interface NetworkMapProps {
+  nodes: Node[];
+  searchQuery: string;
+  selectedNodeId: string | null;
+  onNodeSelect: (id: string | null) => void;
 }
 
-interface Node extends d3.SimulationNodeDatum {
-  id: string;
-  group: number;
-  label: string;
-  latency: number;
-  location: string;
-  ip: string;
-  status: 'active' | 'syncing' | 'idle';
-  lastSeen: string;
-  uptime: string;
-  cpuLimit: number;
-  memoryLimit: number;
-  version: string;
-  os: string;
-  history: NodeHistory[];
-  peerId: string;
-  listenAddrs: string[];
-  dhtStatus: 'active' | 'client' | 'refreshing';
-  connections: { inbound: number, outbound: number };
-  bandwidth: { up: string, down: string };
-}
-
-interface Link extends d3.SimulationLinkDatum<Node> {
-  source: string | Node;
-  target: string | Node;
-  value: number;
-}
-
-const generateMockHistory = (baseLatency: number): NodeHistory[] => {
-  const history: NodeHistory[] = [];
-  const now = new Date();
-  for (let i = 0; i < 20; i++) {
-    const time = new Date(now.getTime() - (19 - i) * 1800000); // Every 30 mins, 20 points
-    history.push({
-      timestamp: time.toISOString(),
-      status: Math.random() > 0.1 ? 'active' : 'idle',
-      latency: Math.max(5, baseLatency + Math.floor(Math.random() * 20) - 10)
-    });
-  }
-  return history;
-};
-
-const INITIAL_NODES: Node[] = [
-  { 
-    id: 'local-node', group: 1, label: 'Local Node', latency: 0, 
-    location: 'San Francisco, US', ip: '192.168.1.42', status: 'active', 
-    lastSeen: 'Now', uptime: '142d 18h', cpuLimit: 90, memoryLimit: 85,
-    version: 'v2.4.1-alpha', os: 'Alpine Linux 3.18',
-    history: generateMockHistory(5),
-    peerId: '12D3KooW...sf9w',
-    listenAddrs: ['/ip4/127.0.0.1/tcp/4001', '/ip4/192.168.1.42/tcp/4001'],
-    dhtStatus: 'active',
-    connections: { inbound: 42, outbound: 15 },
-    bandwidth: { up: '1.2 Mbps', down: '4.5 Mbps' }
-  },
-  { 
-    id: 'peer-1', group: 2, label: 'Peer 0x71...f2', latency: 45, 
-    location: 'London, UK', ip: '85.12.33.210', status: 'active', 
-    lastSeen: '2s ago', uptime: '12d 4h', cpuLimit: 80, memoryLimit: 75,
-    version: 'v2.3.9-stable', os: 'Ubuntu 22.04 LTS',
-    history: generateMockHistory(45),
-    peerId: '12D3KooL...P9x7',
-    listenAddrs: ['/ip4/85.12.33.210/tcp/4001'],
-    dhtStatus: 'active',
-    connections: { inbound: 12, outbound: 8 },
-    bandwidth: { up: '450 Kbps', down: '1.1 Mbps' }
-  },
-  { 
-    id: 'peer-2', group: 2, label: 'Peer 0x3a...11', latency: 120, 
-    location: 'Tokyo, JP', ip: '103.4.112.5', status: 'idle', 
-    lastSeen: '15s ago', uptime: '3d 2h', cpuLimit: 70, memoryLimit: 60,
-    version: 'v2.3.8-stable', os: 'Debian 12',
-    history: generateMockHistory(120),
-    peerId: '12D3KooK...Lm22',
-    listenAddrs: ['/ip4/103.4.112.5/tcp/4001'],
-    dhtStatus: 'refreshing',
-    connections: { inbound: 2, outbound: 3 },
-    bandwidth: { up: '12 Kbps', down: '45 Kbps' }
-  },
-  { 
-    id: 'peer-3', group: 2, label: 'Peer 0xbc...44', latency: 15, 
-    location: 'New York, US', ip: '162.243.12.8', status: 'active', 
-    lastSeen: 'Now', uptime: '45d 11h', cpuLimit: 95, memoryLimit: 90,
-    version: 'v2.4.0-rc1', os: 'Alpine Linux 3.19',
-    history: generateMockHistory(15),
-    peerId: '12D3KooJ...Qq55',
-    listenAddrs: ['/ip4/162.243.12.8/tcp/4001'],
-    dhtStatus: 'active',
-    connections: { inbound: 28, outbound: 12 },
-    bandwidth: { up: '890 Kbps', down: '2.4 Mbps' }
-  },
-  { 
-    id: 'peer-4', group: 2, label: 'Peer 0x92...8e', latency: 85, 
-    location: 'Berlin, DE', ip: '94.23.4.156', status: 'syncing', 
-    lastSeen: 'Syncing', uptime: '0d 12h', cpuLimit: 75, memoryLimit: 70,
-    version: 'v2.3.9-stable', os: 'Ubuntu 20.04 LTS',
-    history: generateMockHistory(85),
-    peerId: '12D3KooH...As11',
-    listenAddrs: ['/ip4/94.23.4.156/tcp/4001'],
-    dhtStatus: 'client',
-    connections: { inbound: 5, outbound: 15 },
-    bandwidth: { up: '2.1 Mbps', down: '8.2 Mbps' }
-  }
-];
-
-const INITIAL_LINKS: Link[] = [
-  { source: 'local-node', target: 'peer-1', value: 1 },
-  { source: 'local-node', target: 'peer-2', value: 1 },
-  { source: 'local-node', target: 'peer-3', value: 1 },
-  { source: 'local-node', target: 'peer-4', value: 1 },
-];
-
-export function NetworkMap() {
-  const [nodes, setNodes] = useState<Node[]>(INITIAL_NODES);
-  const [links, setLinks] = useState<Link[]>(INITIAL_LINKS);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'syncing' | 'idle'>('all');
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
-  const [isPinging, setIsPinging] = useState(false);
+export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }: NetworkMapProps) {
+  const [links] = useState<Link[]>(INITIAL_LINKS);
   const [pingResult, setPingResult] = useState<number | null>(null);
+  const [isPinging, setIsPinging] = useState(false);
   const [isDiagnosing, setIsDiagnosing] = useState(false);
   const [diagnosticStep, setDiagnosticStep] = useState(0);
   const [activeTab, setActiveTab] = useState<'health' | 'history' | 'network'>('health');
@@ -150,7 +36,21 @@ export function NetworkMap() {
 
   const svgRef = useRef<SVGSVGElement>(null);
   const simulationRef = useRef<d3.Simulation<Node, Link> | null>(null);
-  const prevNodesRef = useRef<Node[]>([]);
+
+  const selectedNode = useMemo(() => 
+    nodes.find(n => n.id === selectedNodeId) || null
+  , [nodes, selectedNodeId]);
+
+  const isMatch = (node: Node) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      node.label.toLowerCase().includes(query) ||
+      node.ip.toLowerCase().includes(query) ||
+      node.version.toLowerCase().includes(query) ||
+      node.peerId.toLowerCase().includes(query)
+    );
+  };
 
   // Simulation setup
   useEffect(() => {
@@ -163,7 +63,7 @@ export function NetworkMap() {
       .force('link', d3.forceLink<Node, Link>(links).id(d => d.id).distance(150))
       .force('charge', d3.forceManyBody().strength(-400))
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collision', d3.forceCollide().radius(40));
+      .force('collision', d3.forceCollide().radius(45));
 
     simulationRef.current = simulation;
 
@@ -185,11 +85,20 @@ export function NetworkMap() {
       .data(nodes)
       .join('g')
       .attr('class', 'node')
-      .on('click', (event, d) => setSelectedNode(d))
+      .on('click', (event, d) => onNodeSelect(d.id))
       .call(d3.drag<any, Node>()
         .on('start', dragstarted)
         .on('drag', dragged)
         .on('end', dragended));
+
+    // Outer glow for matching nodes
+    const pulseGlow = node.append('circle')
+      .attr('r', 12)
+      .attr('fill', 'none')
+      .attr('stroke', '#627EEA')
+      .attr('stroke-width', 2)
+      .attr('stroke-opacity', 0)
+      .attr('class', 'pulse-glow');
 
     node.append('circle')
       .attr('r', 8)
@@ -200,14 +109,43 @@ export function NetworkMap() {
 
     node.append('text')
       .text(d => d.label)
-      .attr('x', 12)
+      .attr('x', 14)
       .attr('y', 4)
       .attr('fill', '#94A3B8')
       .attr('font-size', '10px')
-      .attr('font-weight', '500')
-      .attr('class', 'pointer-events-none select-none');
+      .attr('font-weight', '700')
+      .attr('class', 'pointer-events-none select-none tracking-tight');
 
     simulation.on('tick', () => {
+      // Apply search highlighting styles
+      const hasSearch = searchQuery.trim().length > 0;
+      
+      link.attr('stroke-opacity', d => {
+        const sourceMatch = isMatch(d.source as Node);
+        const targetMatch = isMatch(d.target as Node);
+        if (hasSearch) {
+          return (sourceMatch && targetMatch) ? 0.4 : 0.05;
+        }
+        return 0.2;
+      });
+
+      node.style('opacity', d => {
+        if (hasSearch && !isMatch(d)) return 0.2;
+        return 1;
+      });
+
+      pulseGlow
+        .attr('stroke-opacity', d => {
+          if (hasSearch && isMatch(d)) return 0.5;
+          if (selectedNodeId === d.id) return 0.8;
+          return 0;
+        })
+        .attr('r', d => {
+          if (hasSearch && isMatch(d)) return 12 + Math.sin(Date.now() / 200) * 2;
+          if (selectedNodeId === d.id) return 14;
+          return 12;
+        });
+
       link
         .attr('x1', d => (d.source as Node).x!)
         .attr('y1', d => (d.source as Node).y!)
@@ -237,7 +175,7 @@ export function NetworkMap() {
     return () => {
       simulation.stop();
     };
-  }, [nodes, links]);
+  }, [nodes, links, searchQuery, selectedNodeId]);
 
   useEffect(() => {
     if (selectedNode) {
@@ -245,7 +183,7 @@ export function NetworkMap() {
       if (isPinging) setIsPinging(false);
       setActiveTab('health');
     }
-  }, [selectedNode]);
+  }, [selectedNodeId]);
 
   const handlePing = () => {
     setIsPinging(true);
@@ -281,24 +219,19 @@ export function NetworkMap() {
             <Globe size={18} className="text-[#627EEA]" />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-white tracking-tight">GLOBAL PEER TOPOLOGY</h2>
-            <p className="text-[10px] text-slate-500 font-medium">8 NODES DETECTED • 2 SYNCING</p>
+            <h2 className="text-sm font-bold text-white tracking-tight uppercase">Topology Inspector</h2>
+            <p className="text-[10px] text-slate-500 font-medium tracking-wide">
+              {searchQuery ? `SHOWING ${nodes.filter(n => isMatch(n)).length} SEARCH RESULTS` : `${nodes.length} PERSISTENT PEERS ACTIVE`}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
-            <input 
-              type="text" 
-              placeholder="PEER ID / IP..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-white/5 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-[#627EEA]/50 w-48 transition-all"
-            />
-          </div>
-          <button className="p-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-slate-400">
-            <Filter size={14} />
-          </button>
+          {searchQuery && (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-[#627EEA]/10 border border-[#627EEA]/20 rounded-full">
+              <span className="text-[8px] font-bold text-[#627EEA] uppercase tracking-tighter">Filter Active</span>
+              <div className="w-1 h-1 rounded-full bg-[#627EEA] animate-ping" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -328,7 +261,7 @@ export function NetworkMap() {
                   </div>
                 </div>
                 <button 
-                  onClick={() => setSelectedNode(null)}
+                  onClick={() => onNodeSelect(null)}
                   className="p-1.5 hover:bg-white/5 rounded-lg text-slate-500 transition-colors"
                 >
                   <X size={18} />

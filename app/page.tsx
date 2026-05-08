@@ -2,17 +2,22 @@
 
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { sdk } from '@farcaster/miniapp-sdk';
 import { NetworkMap } from '@/components/NetworkMap';
 import { 
   Activity, Cpu, Database, HardDrive, 
   Layers, Lock, Server, Share2, 
-  Terminal, Zap, Filter, Search, MoreHorizontal
+  Terminal, Zap, Filter, Search, MoreHorizontal,
+  Wifi, Globe, User
 } from 'lucide-react';
+import { INITIAL_NODES, Node } from '@/lib/types';
 
 export default function Dashboard() {
   const [isReady, setIsReady] = useState(false);
+  const [nodes, setNodes] = useState<Node[]>(INITIAL_NODES);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -25,6 +30,17 @@ export default function Dashboard() {
     };
     init();
   }, []);
+
+  const filteredNodes = useMemo(() => {
+    if (!searchQuery.trim()) return nodes;
+    const query = searchQuery.toLowerCase();
+    return nodes.filter(node => 
+      node.label.toLowerCase().includes(query) ||
+      node.ip.toLowerCase().includes(query) ||
+      node.version.toLowerCase().includes(query) ||
+      node.peerId.toLowerCase().includes(query)
+    );
+  }, [nodes, searchQuery]);
 
   if (!isReady) return null;
 
@@ -48,14 +64,21 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden md:flex items-center gap-6 px-4 py-1.5 bg-white/5 rounded-full border border-white/5 mr-2">
+          <div className="hidden lg:flex items-center gap-6 px-4 py-1.5 bg-white/5 rounded-full border border-white/5 mr-2">
             <HeaderStat label="TOTAL NODES" value="1,242" color="#00FFA3" />
             <HeaderStat label="TXN / SEC" value="14.2k" color="#627EEA" />
-            <HeaderStat label="PENDING" value="12" color="#F59E0B" />
+            <HeaderStat label="PEERS" value={`${nodes.length}`} color="#F59E0B" />
           </div>
-          <button className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all text-slate-400">
-            <Search size={16} />
-          </button>
+          <div className="relative group">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#627EEA] transition-colors" />
+            <input 
+              type="text" 
+              placeholder="SEARCH NODES (NAME, IP, VERSION)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-64 bg-white/5 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-[#627EEA]/50 focus:bg-white/10 transition-all font-mono"
+            />
+          </div>
           <button className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all text-slate-400">
             <Filter size={16} />
           </button>
@@ -65,14 +88,39 @@ export default function Dashboard() {
       {/* Main Content Area */}
       <div className="flex-grow flex gap-4 p-4 overflow-hidden relative">
         {/* Left Sidebar - Quick Access */}
-        <aside className="w-64 flex-shrink-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-1 hidden lg:flex">
-          <section className="bg-slate-900 border border-white/5 rounded-2xl p-5 space-y-4">
-            <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5 pb-2">Active Infrastructure</h3>
-            <div className="space-y-3">
-              <SidebarItem icon={<Server size={14} />} label="Node Instances" value="8/8" active />
-              <SidebarItem icon={<Database size={14} />} label="Chain State" value="99.9%" />
-              <SidebarItem icon={<Lock size={14} />} label="Security Layer" value="Enabled" />
-              <SidebarItem icon={<Share2 size={14} />} label="P2P Peering" value="Optimized" />
+        <aside className="w-72 flex-shrink-0 flex flex-col gap-4 overflow-y-auto custom-scrollbar pr-1 hidden lg:flex">
+          <section className="bg-slate-900 border border-white/5 rounded-2xl p-5 space-y-4 flex flex-col max-h-[60%]">
+            <div className="flex justify-between items-center border-b border-white/5 pb-2">
+              <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Network Neighbors</h3>
+              <span className="text-[9px] font-mono text-[#00FFA3] bg-[#00FFA3]/10 px-2 rounded-full uppercase">
+                {filteredNodes.length} Matches
+              </span>
+            </div>
+            <div className="space-y-2 overflow-y-auto custom-scrollbar pr-1">
+              {filteredNodes.map(node => (
+                <div 
+                  key={node.id}
+                  onClick={() => setSelectedNodeId(node.id)}
+                  className={`p-3 rounded-xl border flex flex-col gap-1 transition-all cursor-pointer ${selectedNodeId === node.id ? 'bg-[#627EEA]/10 border-[#627EEA]/30 ring-1 ring-[#627EEA]/20' : 'bg-white/5 border-transparent hover:bg-white/10 hover:border-white/10'}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-1.5 h-1.5 rounded-full ${node.status === 'active' ? 'bg-[#00FFA3]' : node.status === 'syncing' ? 'bg-[#F59E0B]' : 'bg-[#EF4444]'}`} />
+                      <span className="text-[11px] font-bold text-white tracking-tight">{node.label}</span>
+                    </div>
+                    <span className="text-[9px] font-mono text-slate-500 uppercase">{node.version}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[9px] font-mono text-slate-500 pl-3.5">
+                    <span>{node.ip}</span>
+                    <span className="flex items-center gap-1"><Zap size={8} className="text-[#627EEA]" /> {node.latency}ms</span>
+                  </div>
+                </div>
+              ))}
+              {filteredNodes.length === 0 && (
+                <div className="py-8 text-center">
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">No nodes found</p>
+                </div>
+              )}
             </div>
           </section>
 
@@ -84,6 +132,7 @@ export default function Dashboard() {
             <div className="mt-4 flex-grow font-mono text-[9px] text-slate-500 overflow-y-auto custom-scrollbar space-y-2">
               <p className="text-white/40"><span className="text-[#627EEA]">[14:12:02]</span> Initializing libp2p stack...</p>
               <p><span className="text-[#00FFA3]">[14:12:05]</span> Handshake successful with peer 0x71...f2</p>
+              {searchQuery && <p className="text-[#627EEA] animate-pulse"><span className="text-white/50">[FILTER]</span> Searching for protocol matching "{searchQuery}"...</p>}
               <p><span className="text-[#F59E0B]">[14:12:08]</span> Inbound sync bottleneck detected</p>
               <p><span className="text-[#627EEA]">[14:12:12]</span> Routing table refreshed (124 nodes)</p>
               <p><span className="text-white/40">[14:12:15]</span> Checkpoint validation started...</p>
@@ -94,7 +143,12 @@ export default function Dashboard() {
 
         {/* Center - Network Map */}
         <section className="flex-grow bg-slate-900 border border-white/5 rounded-2xl overflow-hidden shadow-2xl relative">
-          <NetworkMap />
+          <NetworkMap 
+            nodes={nodes} 
+            searchQuery={searchQuery} 
+            selectedNodeId={selectedNodeId} 
+            onNodeSelect={setSelectedNodeId} 
+          />
         </section>
       </div>
 
