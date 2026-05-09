@@ -304,6 +304,37 @@ export function NetworkMap({ nodes, searchQuery, statusFilter, selectedNodeId, o
                   <StatCard label="LATENCY" value={`${selectedNode.latency}ms`} icon={<Zap size={12} />} color="#627EEA" />
                 </div>
 
+                <div className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Cpu size={12} className="text-[#627EEA]" />
+                      <span className="text-[10px] font-bold text-white uppercase tracking-tighter">System Specification</span>
+                    </div>
+                    <div className="px-2 py-0.5 bg-[#00FFA3]/10 text-[#00FFA3] text-[8px] font-bold rounded uppercase border border-[#00FFA3]/20">Core v2.4</div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-[8px] text-slate-500 uppercase font-bold mb-1 tracking-widest">Compiler / OS</div>
+                      <div className="text-[10px] text-white font-bold truncate" title={selectedNode.os}>{selectedNode.os}</div>
+                    </div>
+                    <div>
+                      <div className="text-[8px] text-slate-500 uppercase font-bold mb-1 tracking-widest">Protocol Version</div>
+                      <div className="text-[10px] text-white font-mono font-bold">{selectedNode.version}</div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-white/5">
+                    <div className="text-[8px] text-slate-500 uppercase font-bold mb-2 tracking-widest flex items-center justify-between">
+                      <span>Unique Identity</span>
+                      <Shield size={10} className="text-[#00FFA3]" />
+                    </div>
+                    <div className="bg-black/40 p-2.5 rounded-lg border border-white/5 group/id cursor-help">
+                      <div className="text-[9px] font-mono text-white/60 break-all leading-relaxed whitespace-pre-wrap">{selectedNode.peerId}</div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="pt-4 border-t border-white/5">
                   <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 mb-6">
                     <button onClick={() => setActiveTab('health')} className={`flex-1 py-2 text-[10px] font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'health' ? 'bg-[#627EEA] text-white' : 'text-slate-500 hover:text-white'}`}>
