@@ -172,6 +172,7 @@ export default function Dashboard() {
           <NetworkMap 
             nodes={nodes} 
             searchQuery={searchQuery} 
+            onSearchQueryChange={setSearchQuery}
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
             selectedNodeId={selectedNodeId} 

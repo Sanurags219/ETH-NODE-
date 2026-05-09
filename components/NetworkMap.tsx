@@ -21,13 +21,14 @@ import { Node, Link, INITIAL_LINKS } from '@/lib/types';
 interface NetworkMapProps {
   nodes: Node[];
   searchQuery: string;
+  onSearchQueryChange: (query: string) => void;
   statusFilter: 'all' | 'active' | 'syncing' | 'idle';
   onStatusFilterChange: (filter: 'all' | 'active' | 'syncing' | 'idle') => void;
   selectedNodeId: string | null;
   onNodeSelect: (id: string | null) => void;
 }
 
-export function NetworkMap({ nodes, searchQuery, statusFilter, onStatusFilterChange, selectedNodeId, onNodeSelect }: NetworkMapProps) {
+export function NetworkMap({ nodes, searchQuery, onSearchQueryChange, statusFilter, onStatusFilterChange, selectedNodeId, onNodeSelect }: NetworkMapProps) {
   const [links] = useState<Link[]>(INITIAL_LINKS);
   const [pingResult, setPingResult] = useState<number | null>(null);
   const [isPinging, setIsPinging] = useState(false);
@@ -276,6 +277,25 @@ export function NetworkMap({ nodes, searchQuery, statusFilter, onStatusFilterCha
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <div className="relative group">
+            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-[#627EEA] transition-colors" />
+            <input 
+              type="text"
+              placeholder="SEARCH NODES..."
+              value={searchQuery}
+              onChange={(e) => onSearchQueryChange(e.target.value)}
+              className="w-48 bg-black/20 border border-white/10 rounded-xl py-1.5 pl-8 pr-3 text-[9px] text-white focus:outline-none focus:ring-1 focus:ring-[#627EEA]/50 focus:bg-black/30 transition-all font-mono uppercase tracking-tighter"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => onSearchQueryChange('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              >
+                <X size={10} />
+              </button>
+            )}
+          </div>
+
           <div className="flex bg-black/20 p-1 rounded-xl border border-white/10 gap-1 backdrop-blur-sm">
             {(['all', 'active', 'syncing', 'idle'] as const).map((status) => {
               const getStatusColor = () => {
