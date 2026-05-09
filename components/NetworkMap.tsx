@@ -21,11 +21,12 @@ import { Node, Link, INITIAL_LINKS } from '@/lib/types';
 interface NetworkMapProps {
   nodes: Node[];
   searchQuery: string;
+  statusFilter: 'all' | 'active' | 'syncing' | 'idle';
   selectedNodeId: string | null;
   onNodeSelect: (id: string | null) => void;
 }
 
-export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }: NetworkMapProps) {
+export function NetworkMap({ nodes, searchQuery, statusFilter, selectedNodeId, onNodeSelect }: NetworkMapProps) {
   const [links] = useState<Link[]>(INITIAL_LINKS);
   const [pingResult, setPingResult] = useState<number | null>(null);
   const [isPinging, setIsPinging] = useState(false);
@@ -43,14 +44,15 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
   , [nodes, selectedNodeId]);
 
   const isMatch = (node: Node) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
+    const query = searchQuery.toLowerCase().trim();
+    const matchesSearch = !query || (
       node.label.toLowerCase().includes(query) ||
       node.ip.toLowerCase().includes(query) ||
       node.version.toLowerCase().includes(query) ||
       node.peerId.toLowerCase().includes(query)
     );
+    const matchesStatus = statusFilter === 'all' || node.status === statusFilter;
+    return matchesSearch && matchesStatus;
   };
 
   // Simulation setup
@@ -135,31 +137,31 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
       .attr('class', 'pointer-events-none select-none tracking-tight');
 
     simulation.on('tick', () => {
-      // Apply search highlighting styles
-      const hasSearch = searchQuery.trim().length > 0;
+      // Apply search and status filtering styles
+      const hasFilter = searchQuery.trim().length > 0 || statusFilter !== 'all';
       
       link.attr('stroke-opacity', d => {
         const sourceMatch = isMatch(d.source as Node);
         const targetMatch = isMatch(d.target as Node);
-        if (hasSearch) {
+        if (hasFilter) {
           return (sourceMatch && targetMatch) ? 0.4 : 0.05;
         }
         return 0.2;
       });
 
       node.style('opacity', d => {
-        if (hasSearch && !isMatch(d)) return 0.2;
+        if (hasFilter && !isMatch(d)) return 0.2;
         return 1;
       });
 
       pulseGlow
         .attr('stroke-opacity', d => {
-          if (hasSearch && isMatch(d)) return 0.5;
+          if (hasFilter && isMatch(d)) return 0.5;
           if (selectedNodeId === d.id) return 0.8;
           return 0;
         })
         .attr('r', d => {
-          if (hasSearch && isMatch(d)) return 12 + Math.sin(Date.now() / 200) * 2;
+          if (hasFilter && isMatch(d)) return 12 + Math.sin(Date.now() / 200) * 2;
           if (selectedNodeId === d.id) return 14;
           return 12;
         });
@@ -193,7 +195,7 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
     return () => {
       simulation.stop();
     };
-  }, [nodes, links, searchQuery, selectedNodeId]);
+  }, [nodes, links, searchQuery, statusFilter, selectedNodeId]);
 
   useEffect(() => {
     if (selectedNodeId) {
@@ -249,12 +251,12 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
           <div>
             <h2 className="text-sm font-bold text-white tracking-tight uppercase">Topology Inspector</h2>
             <p className="text-[10px] text-slate-500 font-medium tracking-wide">
-              {searchQuery ? `SHOWING ${nodes.filter(n => isMatch(n)).length} SEARCH RESULTS` : `${nodes.length} PERSISTENT PEERS ACTIVE`}
+              {statusFilter !== 'all' || searchQuery ? `SHOWING ${nodes.filter(n => isMatch(n)).length} FILTERED RESULTS` : `${nodes.length} PERSISTENT PEERS ACTIVE`}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {searchQuery && (
+          {(statusFilter !== 'all' || searchQuery) && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-[#627EEA]/10 border border-[#627EEA]/20 rounded-full">
               <span className="text-[8px] font-bold text-[#627EEA] uppercase tracking-tighter">Filter Active</span>
               <div className="w-1 h-1 rounded-full bg-[#627EEA] animate-ping" />

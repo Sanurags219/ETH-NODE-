@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [isReady, setIsReady] = useState(false);
   const [nodes, setNodes] = useState<Node[]>(INITIAL_NODES);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'syncing' | 'idle'>('all');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,15 +33,23 @@ export default function Dashboard() {
   }, []);
 
   const filteredNodes = useMemo(() => {
-    if (!searchQuery.trim()) return nodes;
+    let result = nodes;
+    
+    // Status Filter
+    if (statusFilter !== 'all') {
+      result = result.filter(node => node.status === statusFilter);
+    }
+
+    // Search Filter
+    if (!searchQuery.trim()) return result;
     const query = searchQuery.toLowerCase();
-    return nodes.filter(node => 
+    return result.filter(node => 
       node.label.toLowerCase().includes(query) ||
       node.ip.toLowerCase().includes(query) ||
       node.version.toLowerCase().includes(query) ||
       node.peerId.toLowerCase().includes(query)
     );
-  }, [nodes, searchQuery]);
+  }, [nodes, searchQuery, statusFilter]);
 
   if (!isReady) return null;
 
@@ -79,6 +88,23 @@ export default function Dashboard() {
               className="w-64 bg-white/5 border border-white/10 rounded-xl py-2 pl-9 pr-4 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-[#627EEA]/50 focus:bg-white/10 transition-all font-mono"
             />
           </div>
+          
+          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 gap-1">
+            {(['all', 'active', 'syncing', 'idle'] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => setStatusFilter(status)}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-tighter transition-all ${
+                  statusFilter === status 
+                    ? 'bg-[#627EEA] text-white shadow-lg shadow-[#627EEA]/20' 
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+
           <button className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 flex items-center justify-center transition-all text-slate-400">
             <Filter size={16} />
           </button>
@@ -146,6 +172,7 @@ export default function Dashboard() {
           <NetworkMap 
             nodes={nodes} 
             searchQuery={searchQuery} 
+            statusFilter={statusFilter}
             selectedNodeId={selectedNodeId} 
             onNodeSelect={setSelectedNodeId} 
           />

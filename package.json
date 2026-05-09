@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@farcaster/miniapp-sdk": "latest",
+    "@tanstack/react-query": "^5.100.9",
     "clsx": "^2.1.1",
     "d3": "^7.9.0",
     "lucide-react": "^0.454.0",
@@ -18,7 +19,9 @@
     "react": "^18",
     "react-dom": "^18",
     "recharts": "^2.13.3",
-    "tailwind-merge": "^2.5.4"
+    "tailwind-merge": "^2.5.4",
+    "viem": "^2.48.11",
+    "wagmi": "^3.6.11"
   },
   "devDependencies": {
     "@types/d3": "^7.4.3",
