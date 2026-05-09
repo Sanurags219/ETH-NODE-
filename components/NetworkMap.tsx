@@ -22,11 +22,12 @@ interface NetworkMapProps {
   nodes: Node[];
   searchQuery: string;
   statusFilter: 'all' | 'active' | 'syncing' | 'idle';
+  onStatusFilterChange: (filter: 'all' | 'active' | 'syncing' | 'idle') => void;
   selectedNodeId: string | null;
   onNodeSelect: (id: string | null) => void;
 }
 
-export function NetworkMap({ nodes, searchQuery, statusFilter, selectedNodeId, onNodeSelect }: NetworkMapProps) {
+export function NetworkMap({ nodes, searchQuery, statusFilter, onStatusFilterChange, selectedNodeId, onNodeSelect }: NetworkMapProps) {
   const [links] = useState<Link[]>(INITIAL_LINKS);
   const [pingResult, setPingResult] = useState<number | null>(null);
   const [isPinging, setIsPinging] = useState(false);
@@ -150,9 +151,10 @@ export function NetworkMap({ nodes, searchQuery, statusFilter, selectedNodeId, o
       });
 
       node.style('opacity', d => {
-        if (hasFilter && !isMatch(d)) return 0.2;
+        if (hasFilter && !isMatch(d)) return 0.05;
         return 1;
-      });
+      })
+      .style('pointer-events', d => (hasFilter && !isMatch(d)) ? 'none' : 'auto');
 
       pulseGlow
         .attr('stroke-opacity', d => {
@@ -255,7 +257,23 @@ export function NetworkMap({ nodes, searchQuery, statusFilter, selectedNodeId, o
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-4">
+          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 gap-1">
+            {(['all', 'active', 'syncing', 'idle'] as const).map((status) => (
+              <button
+                key={status}
+                onClick={() => onStatusFilterChange(status)}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-tighter transition-all ${
+                  statusFilter === status 
+                    ? 'bg-[#627EEA] text-white shadow-lg shadow-[#627EEA]/20' 
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                }`}
+              >
+                {status}
+              </button>
+            ))}
+          </div>
+          
           {(statusFilter !== 'all' || searchQuery) && (
             <div className="flex items-center gap-2 px-3 py-1.5 bg-[#627EEA]/10 border border-[#627EEA]/20 rounded-full">
               <span className="text-[8px] font-bold text-[#627EEA] uppercase tracking-tighter">Filter Active</span>

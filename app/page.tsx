@@ -173,6 +173,7 @@ export default function Dashboard() {
             nodes={nodes} 
             searchQuery={searchQuery} 
             statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
             selectedNodeId={selectedNodeId} 
             onNodeSelect={setSelectedNodeId} 
           />
