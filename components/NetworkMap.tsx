@@ -276,20 +276,45 @@ export function NetworkMap({ nodes, searchQuery, statusFilter, onStatusFilterCha
           </div>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex bg-white/5 p-1 rounded-xl border border-white/10 gap-1">
-            {(['all', 'active', 'syncing', 'idle'] as const).map((status) => (
-              <button
-                key={status}
-                onClick={() => onStatusFilterChange(status)}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-tighter transition-all ${
-                  statusFilter === status 
-                    ? 'bg-[#627EEA] text-white shadow-lg shadow-[#627EEA]/20' 
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-                }`}
-              >
-                {status}
-              </button>
-            ))}
+          <div className="flex bg-black/20 p-1 rounded-xl border border-white/10 gap-1 backdrop-blur-sm">
+            {(['all', 'active', 'syncing', 'idle'] as const).map((status) => {
+              const getStatusColor = () => {
+                if (status === 'active') return 'text-[#00FFA3]';
+                if (status === 'syncing') return 'text-[#F59E0B]';
+                if (status === 'idle') return 'text-[#94A3B8]';
+                return 'text-white';
+              };
+              
+              const getStatusBg = () => {
+                if (status === 'active') return 'bg-[#00FFA3]/10';
+                if (status === 'syncing') return 'bg-[#F59E0B]/10';
+                if (status === 'idle') return 'bg-[#94A3B8]/10';
+                return 'bg-white/10';
+              };
+
+              const isActive = statusFilter === status;
+
+              return (
+                <button
+                  key={status}
+                  onClick={() => onStatusFilterChange(status)}
+                  className={`px-3 py-1.5 rounded-lg text-[9px] font-bold uppercase tracking-tighter transition-all flex items-center gap-2 group ${
+                    isActive 
+                      ? `${getStatusBg()} ${getStatusColor()} ring-1 ring-white/10 shadow-lg` 
+                      : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                  }`}
+                >
+                  {status !== 'all' && (
+                    <div className={`w-1 h-1 rounded-full ${
+                      status === 'active' ? 'bg-[#00FFA3]' : 
+                      status === 'syncing' ? 'bg-[#F59E0B]' : 
+                      'bg-[#94A3B8]'
+                    } ${status === 'syncing' && isActive ? 'animate-pulse' : ''}`} />
+                  )}
+                  {status}
+                </button>
+              );
+            })}
           </div>
           
           {(statusFilter !== 'all' || searchQuery) && (
