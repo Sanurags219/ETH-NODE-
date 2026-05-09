@@ -441,50 +441,66 @@ export function NetworkMap({ nodes, searchQuery, selectedNodeId, onNodeSelect }:
                           <div>
                             <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-3 font-bold flex items-center gap-2 px-1"><Cpu size={10} /> Runtime Environment</div>
                             <div className="grid grid-cols-2 gap-3 text-[10px]">
-                              <div className="p-3 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">VERSION</div><div className="font-mono text-white">{selectedNode.version}</div></div>
-                              <div className="p-3 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">OS</div><div className="text-white truncate">{selectedNode.os}</div></div>
+                              <div className="p-3 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">VERSION</div><div className="font-mono text-white font-bold">{selectedNode.version}</div></div>
+                              <div className="p-3 bg-black/20 rounded-lg border border-white/5"><div className="text-slate-500 mb-1">OS</div><div className="text-white truncate font-bold" title={selectedNode.os}>{selectedNode.os}</div></div>
                             </div>
                           </div>
 
                           <div className="pt-2 border-t border-white/5">
-                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-3 font-bold flex items-center gap-2 px-1"><Network size={10} /> P2P Configuration</div>
+                            <div className="text-[10px] uppercase tracking-widest text-[#627EEA] mb-3 font-bold flex items-center gap-2 px-1"><Network size={10} /> P2P Network Config</div>
                             <div className="space-y-3">
                               <div className="p-3 bg-black/20 rounded-lg border border-white/5 text-[10px]">
-                                <div className="text-slate-500 mb-2">CORE PEER ID</div>
-                                <div className="font-mono text-white break-all bg-white/5 p-2 rounded leading-relaxed border border-white/5">{selectedNode.peerId}</div>
+                                <div className="text-slate-500 mb-2 font-bold uppercase tracking-tighter">Core Peer Identity</div>
+                                <div className="font-mono text-white break-all bg-white/5 p-2 rounded leading-relaxed border border-white/5 select-all">{selectedNode.peerId}</div>
                               </div>
                               
                               <div className="p-3 bg-black/20 rounded-lg border border-white/5 text-[10px]">
-                                <div className="text-slate-500 mb-2">LISTEN ADDRESSES</div>
+                                <div className="text-slate-500 mb-2 font-bold uppercase tracking-tighter">Multiaddress Listeners</div>
                                 <div className="space-y-1.5 font-mono text-white/80">
                                   {selectedNode.listenAddrs.map((addr, i) => (
-                                    <div key={i} className="text-[9px] bg-slate-800/50 p-1.5 rounded-md px-3 border border-white/5 truncate">{addr}</div>
+                                    <div key={i} className="text-[9px] bg-slate-800/50 p-1.5 rounded-md px-3 border border-white/5 truncate flex items-center gap-2">
+                                      <div className="w-1 h-1 rounded-full bg-slate-500" />
+                                      {addr}
+                                    </div>
                                   ))}
                                 </div>
                               </div>
 
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="p-3 bg-black/20 rounded-lg border border-white/5">
-                                  <div className="text-[8px] text-slate-500 uppercase mb-1">DHT STATUS</div>
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1 font-bold">DHT / Routing</div>
                                   <div className="flex items-center gap-2">
                                     <div className={`w-1.5 h-1.5 rounded-full ${selectedNode.dhtStatus === 'active' ? 'bg-[#00FFA3]' : 'bg-[#F59E0B]'}`} />
                                     <span className="text-[10px] font-bold text-white uppercase">{selectedNode.dhtStatus}</span>
                                   </div>
                                 </div>
                                 <div className="p-3 bg-black/20 rounded-lg border border-white/5">
-                                  <div className="text-[8px] text-slate-500 uppercase mb-1">CONNECTIONS</div>
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1 font-bold">TCP Connections</div>
                                   <div className="text-[10px] font-mono text-white">{selectedNode.connections.inbound} IN / {selectedNode.connections.outbound} OUT</div>
                                 </div>
                               </div>
 
                               <div className="grid grid-cols-2 gap-3">
                                 <div className="p-3 bg-black/20 rounded-lg border border-white/5">
-                                  <div className="text-[8px] text-slate-500 uppercase mb-1">ENCRYPTION</div>
-                                  <div className="text-[10px] font-bold text-white">TLS 1.3 / AES-256</div>
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1 font-bold">AutoNAT Status</div>
+                                  <div className="text-[10px] font-bold text-[#00FFA3]">PUBLICLY REACHABLE</div>
                                 </div>
                                 <div className="p-3 bg-black/20 rounded-lg border border-white/5">
-                                  <div className="text-[8px] text-slate-500 uppercase mb-1">TRAFFIC (UP/DOWN)</div>
-                                  <div className="text-[10px] font-mono text-white">{selectedNode.bandwidth.up} / {selectedNode.bandwidth.down}</div>
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1 font-bold">Relay Service</div>
+                                  <div className="text-[10px] font-bold text-white">HOP ENABLED</div>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                <div className="p-3 bg-black/20 rounded-lg border border-white/5">
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1 font-bold">Encryption</div>
+                                  <div className="text-[10px] font-bold text-white flex items-center gap-2">
+                                    <Shield size={10} className="text-[#00FFA3]" /> TLS 1.3 / Noise
+                                  </div>
+                                </div>
+                                <div className="p-3 bg-black/20 rounded-lg border border-white/5">
+                                  <div className="text-[8px] text-slate-500 uppercase mb-1 font-bold">Throttling</div>
+                                  <div className="text-[10px] font-mono text-white">{selectedNode.bandwidth.up} UP / {selectedNode.bandwidth.down} DN</div>
                                 </div>
                               </div>
                             </div>
