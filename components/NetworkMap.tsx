@@ -95,37 +95,55 @@ export function NetworkMap({ nodes, searchQuery, statusFilter, onStatusFilterCha
         .on('drag', dragged)
         .on('end', dragended));
 
-    // Outer glow for matching nodes
+    const getStatusColor = (d: Node) => d.status === 'active' ? '#00FFA3' : d.status === 'syncing' ? '#F59E0B' : '#94A3B8';
+
+    // Outer status glow and highlight ring
     const pulseGlow = node.append('circle')
-      .attr('r', 12)
-      .attr('fill', 'none')
-      .attr('stroke', '#627EEA')
-      .attr('stroke-width', 2)
+      .attr('r', 15)
+      .attr('fill', d => `${getStatusColor(d)}08`)
+      .attr('stroke', getStatusColor)
+      .attr('stroke-width', 1.5)
+      .attr('stroke-dasharray', '2 2')
       .attr('stroke-opacity', 0)
       .attr('class', 'pulse-glow');
 
-    // Main node circle
+    // Main node background with subtle depth
     node.append('circle')
-      .attr('r', 9)
-      .attr('fill', '#1E293B')
-      .attr('stroke', d => d.status === 'active' ? '#00FFA3' : d.status === 'syncing' ? '#F59E0B' : '#94A3B8')
-      .attr('stroke-width', 2)
-      .attr('class', 'cursor-pointer transition-all hover:scale-110');
+      .attr('r', 10)
+      .attr('fill', '#0F172A')
+      .attr('stroke', 'rgba(255,255,255,0.05)')
+      .attr('stroke-width', 1);
 
-    // Status Badge (Orbit Dot)
+    // Inner status ring
+    node.append('circle')
+      .attr('r', 8)
+      .attr('fill', 'none')
+      .attr('stroke', getStatusColor)
+      .attr('stroke-width', 2.5)
+      .attr('stroke-opacity', 0.8)
+      .attr('class', d => d.status === 'syncing' ? 'animate-pulse' : '');
+
+    // Center core
     node.append('circle')
       .attr('r', 4)
-      .attr('cx', 8)
-      .attr('cy', -8)
+      .attr('fill', '#FFF')
+      .attr('fill-opacity', 0.9)
+      .attr('class', 'cursor-pointer transition-all hover:scale-125');
+
+    // Status Badge (Orbit Dot with refined style)
+    node.append('circle')
+      .attr('r', 4.5)
+      .attr('cx', 8.5)
+      .attr('cy', -8.5)
       .attr('fill', '#0F172A')
-      .attr('stroke', 'rgba(255,255,255,0.2)')
+      .attr('stroke', 'rgba(255,255,255,0.1)')
       .attr('stroke-width', 0.5);
 
     node.append('circle')
       .attr('r', 2.5)
-      .attr('cx', 8)
-      .attr('cy', -8)
-      .attr('fill', d => d.status === 'active' ? '#00FFA3' : d.status === 'syncing' ? '#F59E0B' : '#94A3B8')
+      .attr('cx', 8.5)
+      .attr('cy', -8.5)
+      .attr('fill', getStatusColor)
       .attr('class', d => d.status === 'syncing' ? 'animate-pulse' : '');
 
     node.append('text')
